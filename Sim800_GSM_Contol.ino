@@ -474,7 +474,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         
         if (_response.length() > fist_comms_index+2+DIGIT_IN_PHONENAMBER) //если в текстовом поле еще есть коментарий
         { 
-          textnumbercomment=_response.substring(fist_comms_index+2+DIGIT_IN_PHONENAMBER, _response.length()-5);
+          textnumbercomment=_response.substring(fist_comms_index+2+DIGIT_IN_PHONENAMBER, _response.length()-4);
          #ifndef NOSERIAL            
           Serial.println("TextNumberComment: " + textnumbercomment);
          #endif 
