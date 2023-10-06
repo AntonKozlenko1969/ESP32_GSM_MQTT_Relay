@@ -1539,10 +1539,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string) {
   bool _resp=false;
   String file_nume=F("/PhoneBook.txt");
   File PhoneFile =  SPIFFS.open(file_nume, FILE_APPEND);
-    if (!PhoneFile) {
-        //_log->println(F("- failed to open file for appending"));
-        } //Serial.println("- failed to open file for appending");
-     else{
+    if (PhoneFile) {
       PhoneFile.print(file_num_string);
       //if (command_type == 3) {PhoneFile.print(phones_on_sim[phone_index_int]); PhoneFile.print("\n");}
        PhoneFile.close(); _resp=true;
@@ -1555,50 +1552,29 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string) {
 void ESPWebBase::readBINfile() {
   String file_nume=F("/PhoneBook.bin");
   File PhoneFile =  SPIFFS.open(file_nume, FILE_READ);
+  uint16_t curr_num=0; // номер текщего считываемого телефонного номера  
   if (!PhoneFile) { 
    _log->println(F("- failed to open BIN file")); 
     //Serial.println("- failed to open BIN file");
    return;
   }
   else{
-      int8_t read_byte=0;
-      int8_t num_byte=0;
-      int64_t current_phnum = 0;
-      int8_t curr_phindex = 0;
-      String buffer;
-      while (PhoneFile.available()){
-          buffer = PhoneFile.readStringUntil('\n'); //Считываем весь дотекст в строку до символа окончания.
-          // Serial.print("string - ");
-          // Serial.println(buffer);
-          //char *chr_buff = const_cast<char*>(buffer.c_str()); // преобразование из строки в *chr
-          
-          //Serial.println(chr_buff);
-          current_phnum = buffer.toDouble();
-          //current_phnum = buffer.toFloat();
-          // Serial.print("int64  - ");
-          // Serial.println(current_phnum);
-        // read_byte=PhoneFile.read();
-        // if (num_byte>7) {
-        //   num_byte=0;
-        //   phones_on_sim[curr_phindex]=current_phnum;
-        //   //Serial.println("num_byte=8"); 
-        //   // current_phnum = 0;
-        //   // current_phnum |= int64_t(read_byte)<<(55 - num_byte*8);
-        // }
-        // else if (num_byte=7) {
-        //   curr_phindex = read_byte;
-        //   current_phnum |= int64_t(read_byte);
-        //   //Serial.println("num_byte=7");          
-        // }
-        // else {
-        //   current_phnum |= int64_t(read_byte)<<(55 - num_byte*8);
-        //   }
-
-        // num_byte +=1;
-      }
+    uint8_t dig = 0; //Номер текущего считанного байта из файла (всего для одного номера надо считать 8 байт)
+    byte byte_read =0; // текущий считываемый байт из файла (всего для одного номера надо считать 8 байт)
+    while(PhoneFile.available()){
+        byte_read = PhoneFile.read();
+        phones_on_sim[curr_num] |= uint64_t(byte_read) << (56 - dig*8); 
+        if (dig < 7) ++dig;
+        else { ++curr_num; dig=0; }
+      } 
+    }
       PhoneFile.close();
-     }
-}
+      alloc_num[2] = curr_num;      
+      #ifndef NOSERIAL 
+        Serial.print("Total BIN_numer - "); 
+        Serial.println(alloc_num[2]);
+      #endif
+ }
 
 void ESPWebBase::readTXTfile() {
   String file_nume=F("/PhoneBookNew.txt");
@@ -1683,6 +1659,33 @@ void ESPWebBase::readTXTfile() {
 
       PhoneFile.close();
      }
+}
+
+// процедура сохранения нового BIN файла с номерами телефонов в SPIFFS
+bool ESPWebBase::saveFile(const String& Fname){
+  bool _ret = false;
+  byte buf[8];  
+//содать файл для сохранения
+  File PhoneFile =  SPIFFS.open(Fname, FILE_APPEND); 
+  if (PhoneFile){
+     // write_bayt = PhoneFile.write(buf, 8);
+     for (int16_t l=0; l < total_bin_num; ++l)
+      { if  (phones_on_sim[l] !=0 ) { // Если номер не равен нулю - записать в файл
+        // Разделить 64 битное число на 8 отбельных байт для последовательной записи в файл
+        for (int8_t j=0; j<8; ++j) {
+          buf[j] = phones_on_sim[l] >> (56 - (8*j)) ;
+          //Serial.print("bf["); Serial.print(j); Serial.print("] = "); Serial.println(buf[j], BIN);
+          }  
+         PhoneFile.write(buf, 8); //последовательно записать байты в файл
+        }
+      } 
+      //Serial.print("write_bayt = "); Serial.println(write_bayt);
+    PhoneFile.close(); 
+    _ret = true;
+   }  
+   //else  Serial.println("- failed to open file for appending"); 
+
+  return _ret;
 }
 
 const char ESPWebBase::_signEEPROM[4] PROGMEM = { '#', 'E', 'S', 'P' };

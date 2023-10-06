@@ -140,7 +140,7 @@ const char paramTime[] PROGMEM = "time";
 const char paramReboot[] PROGMEM = "reboot";
 
 const char paramWhiteList[] PROGMEM = "whiteList"; // Параметр белых номеров 
-
+const int total_bin_num = 1250; //1250 имеющихся в SPIFFS телефонной книге номеров
 const uint16_t maxStringLen = 32; // Максимальная длина строковых параметров в Web-интерфейсе
 
 class ESPWebBase { // Базовый класс
@@ -152,7 +152,9 @@ public:
   virtual void reboot(); // Перезагрузка модуля
   virtual String _CreateFile(uint8_t command_type); 
   virtual bool writeTXTstring(const String& file_num_string); // добавить строку в текстовый файл
-  int64_t phones_on_sim[250]; //250 имеющихся в телефонной книге номеров
+  virtual bool saveFile(const String& Fname); //процедура сохранения нового BIN файла с номерами телефонов в SPIFFS 
+
+  int64_t phones_on_sim[total_bin_num]; //+ 1250 имеющихся в телефонной книге номеров
   virtual void readBINfile(); // прочитать двоичный файл и заполить номерами массив
   virtual void readTXTfile(); // прочитать двоичный файл и заполить номерами массив
 
@@ -167,7 +169,8 @@ public:
   char PhoneOnSIM[250][DIGIT_IN_PHONENAMBER];
   char CommentOnSIM[250][15];  
   uint8_t indexOnSim[250]; // индекс номера на СИМ карте, если 0 - записать в любой свободный индекс (только для записи на сим)
-  uint8_t alloc_num[2]={0,0}; //Количество имеющихся в телефонной книге номеров и общее возможное количество номеров
+  uint8_t alloc_num[3]={0,0,0}; //Количество имеющихся в телефонной книге номеров и общее возможное количество номеров
+  // а также число сохраненных бинарных номеров из BIN файла
 
   String _whiteListPhones; // Белый список телефонов максимум 3 номера по 8 симолов
   

@@ -355,9 +355,13 @@ void Sim800_setup() {
 
     //setupModem(); // Физическое отключение питания модема - пины ESP32
   whiteListPhones = app->_whiteListPhones; // скопировать список белых номеров сохраненных в EEPROM
+  for (int v = 0; v < total_bin_num; ++v) // обнулить все номера телефонов в массиве
+    app->phones_on_sim[v] = 0;
+
+   app->readBINfile();
 
  for (int v = 0; v < 250; ++v) // обнулить все номера телефонов в массиве
-    {app->phones_on_sim[v] = 0;
+    {
      app->PhoneOnSIM[v][0] = NULL;
      app->CommentOnSIM[v][14] = NULL;
      app->indexOnSim[v]=0;
@@ -415,7 +419,9 @@ String sendATCommand(String cmd, bool waiting) {
 */
 
 void Sim800_loop() {
- 
+// сбрасывать модуль через интервал - раз в 30 часов
+if (millis() > 60*60*1000*30)   ESP.restart();
+
 // Опросить модем раз в указанный интервал
   if (millis() - t_rst > 5*60*1000 && modemOK ) 
  { 
@@ -465,16 +471,19 @@ if (SIM800.available())   {                   // Если модем, что-т�
         phoneindex += 8;                        // Парсим строку и ...
          innerPhone = _response.substring(_response.indexOf("\"", phoneindex)-9, _response.indexOf("\"", phoneindex)); //innerPhone = _response.substring(phoneindex, _response.indexOf("\"", phoneindex)); // ...получаем номер
       #ifndef NOSERIAL          
-        Serial.println("Number: " + innerPhone); // Выводим номер в монитор порта
+        Serial.print("Number: " + innerPhone); // Выводим номер в монитор порта
+        Serial.println(" BIN #: " + String(poisk_num(innerPhone))); // Выводим номер в монитор порта        
       #endif  
         //поиск текстового поля в ответе +CLIP: "069071267",129,"",0,"",0
         int last_comma_index = _response.lastIndexOf(',');
-        int fist_comms_index = String(_response.substring(0,last_comma_index-1)).lastIndexOf(',');
-        textnumber=_response.substring(fist_comms_index+2, fist_comms_index+2+DIGIT_IN_PHONENAMBER); 
-        
-        if (_response.length() > fist_comms_index+2+DIGIT_IN_PHONENAMBER) //если в текстовом поле еще есть коментарий
+        int fist_comma_index = String(_response.substring(0,last_comma_index-1)).lastIndexOf(',');
+        if ((last_comma_index-fist_comma_index) >= DIGIT_IN_PHONENAMBER)
+          textnumber=_response.substring(fist_comma_index+2, fist_comma_index+2+DIGIT_IN_PHONENAMBER); 
+        else textnumber="";
+
+        if (_response.length() > fist_comma_index+2+DIGIT_IN_PHONENAMBER) //если в текстовом поле еще есть коментарий
         { 
-          textnumbercomment=_response.substring(fist_comms_index+2+DIGIT_IN_PHONENAMBER, _response.length()-4);
+          textnumbercomment=_response.substring(fist_comma_index+2+DIGIT_IN_PHONENAMBER, _response.length()-4);
          #ifndef NOSERIAL            
           Serial.println("TextNumberComment: " + textnumbercomment);
          #endif 
@@ -484,12 +493,12 @@ if (SIM800.available())   {                   // Если модем, что-т�
         #endif  
       }
       // Проверяем, чтобы длина номера была больше 6 цифр, и номер должен быть в списке
-      if ((innerPhone.length() > 6 && whiteListPhones.indexOf(innerPhone) > -1) || (innerPhone == textnumber && textnumber.length() == DIGIT_IN_PHONENAMBER))
-       { SIM800.println("ATA");       // Если да, то отвечаем на вызов    
-        //digitalWrite(LED_GPIO, !digitalRead(LED_GPIO) ); // Если да, то включаем LED
-        app->switchRelay(0, true);
-         SIM800.println("ATH"); // Завершаем вызов
-       }
+      if (innerPhone.length() > 6 && whiteListPhones.indexOf(innerPhone) > -1) 
+         regular_call(); // Если звонок от БЕЛОГО номера из EEPROM - ответить, включить реле и сбросить вызов
+      else if (innerPhone == textnumber && textnumber.length() == DIGIT_IN_PHONENAMBER)
+        regular_call(); // Если звонок от БЕЛОГО номера из СИМ карты - ответить, включить реле и сбросить вызов  
+      else if (poisk_num(innerPhone)>-1)
+        regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов        
       else  SIM800.println("ATH"); // Если нет, то отклоняем вызов
 
     }
@@ -518,6 +527,12 @@ if (SIM800.available())   {                   // Если модем, что-т�
       SIM800.println("AT+CMGR=" + result);// Получить содержимое SMS
     }
     else if (_response.indexOf("+CMGR:") > -1) {    // Пришел текст SMS сообщения 
+      // #ifndef NOSERIAL  
+      //   Serial.println("***********************************************************");           
+      //   Serial.print("+CMGR ??? - ");
+      //   Serial.println(_response);
+      //   Serial.println("***********************************************************");         
+      // #endif      
       _response =_response + '\r' + SIM800.readString();
       parseSMS(_response);        // Распарсить SMS на элементы
     }
@@ -648,6 +663,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         }        
       else if (flag_modem_resp==3 && millis() > t_last_command) // завершено одиночное добавление / редактирование номера из СМС - отправить ответ
       { String SMSResp_Mess;
+         exist_numer(); // обновить количества использованных и доступных номеров на СИМ
          if (SMS_phoneBookIndex==0) { //Добавить новый номер
           SMSResp_Mess  =F("Phone-");
           SMSResp_Mess += String(SMS_text_num);
@@ -676,6 +692,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
       } 
       else if (flag_modem_resp==4 && millis() > t_last_command) // завершено одиночное удаление номера из СМС - отправить ответ
       { String SMSResp_Mess;
+        exist_numer(); // обновить количества использованных и доступных номеров на СИМ      
        SMSResp_Mess  =F("Phone-");
        SMSResp_Mess += String(SMS_text_num);
        if (SMS_phoneBookIndex > 0)
@@ -783,7 +800,16 @@ void madeSMSCommand(String msg, String incoming_phone){
  
   String SMSResp_Mess =""; 
   if (firstIndex == -1 || firstIndex > 3 || msg.length() < 13) //неверный формат SMS сообщения
-  { SMSResp_Mess="Wrong SMS format '" + msg + "' " + "\r\n" + "Must be: COM#PHONECOMMENT" + "\r\n" + "COM-3 simvols (necessarily) command" + "\r\n" + "PHONE-9 digit (necessarily)" + "\r\n" + "COMMENT-5 simvols (not necessarily)" ;
+  {// SMSResp_Mess="Wrong SMS format '" + msg + "' " + "\r\n" + "Must be: COM#PHONECOMMENT" + "\r\n" + "COM-3 simvols (necessarily) command" + "\r\n" + "PHONE-9 digit (necessarily)" + "\r\n" + "COMMENT-5 simvols (not necessarily)" ;
+    SMSResp_Mess  =F("Wrong SMS format");
+    SMSResp_Mess += "\r\n";
+    SMSResp_Mess +=F("Must be: COM#PHONECOMMENT"); 
+    SMSResp_Mess +="\r\n";
+    SMSResp_Mess +=F("COM-3 simvols (necessarily) command");  
+    SMSResp_Mess +="\r\n";
+    SMSResp_Mess +=F("PHONE-9 digit (necessarily)");      
+    SMSResp_Mess +="\r\n";
+    SMSResp_Mess +=F("COMMENT-5 simvols (not necessarily)");            
     #ifndef NOSERIAL     
     Serial.println(SMSResp_Mess);
     #endif
@@ -853,8 +879,8 @@ void made_action()
    String temp_respons;
 
   //Выполнить комаду
-  if (_command == "Add")  //Добавить новый номер
-    {
+  if (_command == "Add")  //Добавить новый номер на СИМ карту или в бинарный массив если на сим уже нет места.
+    { if (app->alloc_num[1] > app->alloc_num[0]) // если возможных номеров меньше существующих номеров (на сим карте)
        AddEditNewNumber();
        return;
     }  
@@ -1048,6 +1074,13 @@ void exist_numer(){
   return;
 }
 
+// Если звонок от БЕЛОГО номера - ответить, включить реле и сбросить вызов
+void regular_call()
+{ SIM800.println("ATA");   // Если да, то отвечаем на вызов    
+  app->switchRelay(0, true); // Если да, то включаем LED
+  SIM800.println("ATH"); // Завершаем вызов
+}
+
 void clear_arrey(){
    for (int v = 0; v < 250; ++v) // обнулить все номера телефонов в массиве
       {
@@ -1056,7 +1089,6 @@ void clear_arrey(){
         app->indexOnSim[v]=0;
       }         
 }
-
 // преобразовать двоичный вид номера в строку с цифрами
 String BINnum_to_string(uint64_t bin_num){
     String _retnum;
@@ -1069,4 +1101,24 @@ String BINnum_to_string(uint64_t bin_num){
         _retnum += digit;
     }
     return _retnum;
+}
+// преобразовать строку с номером в двоичный код
+int64_t stringnum_to_bin(const String& string_num){
+  int64_t _retbin=0;
+  for (int8_t g=0; g < string_num.length(); ++g)
+  {
+    _retbin |= uint64_t(string_num[g] - '0') << (60-g*4); 
+  }
+  return _retbin;
+}
+//поиск номера в массиве двоичных номеров
+int poisk_num(const String& txt_num){
+  int _ret=-1;
+  uint64_t found_num = stringnum_to_bin(txt_num);
+  for (int v = 0; v < total_bin_num; ++v)
+  { if (app->phones_on_sim[v] != 0)
+       if (app->phones_on_sim[v] == found_num)
+            _ret=v;
+  }
+  return _ret;
 }
