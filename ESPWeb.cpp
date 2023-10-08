@@ -1664,7 +1664,8 @@ void ESPWebBase::readTXTfile() {
 // процедура сохранения нового BIN файла с номерами телефонов в SPIFFS
 bool ESPWebBase::saveFile(const String& Fname){
   bool _ret = false;
-  byte buf[8];  
+  byte buf[8]; 
+  int total_save_num = 0; // количество сохраненных номеров в файл 
 //содать файл для сохранения
   File PhoneFile =  SPIFFS.open(Fname, FILE_APPEND); 
   if (PhoneFile){
@@ -1677,10 +1678,12 @@ bool ESPWebBase::saveFile(const String& Fname){
           //Serial.print("bf["); Serial.print(j); Serial.print("] = "); Serial.println(buf[j], BIN);
           }  
          PhoneFile.write(buf, 8); //последовательно записать байты в файл
+          ++total_save_num;
         }
       } 
       //Serial.print("write_bayt = "); Serial.println(write_bayt);
     PhoneFile.close(); 
+    alloc_num[2] = total_save_num; //сохранить количество номеров в массиве
     _ret = true;
    }  
    //else  Serial.println("- failed to open file for appending"); 

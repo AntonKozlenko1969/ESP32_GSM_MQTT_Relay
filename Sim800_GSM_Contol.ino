@@ -877,12 +877,25 @@ void madeSMSCommand(String msg, String incoming_phone){
 void made_action()
  { String _command =String(SMS_text_comanda);
    String temp_respons;
-
+   int bin_num_index = poisk_num(String(SMS_text_num));// проверить наличие такого номера в массиве
   //Выполнить комаду
   if (_command == "Add")  //Добавить новый номер на СИМ карту или в бинарный массив если на сим уже нет места.
-    { if (app->alloc_num[1] > app->alloc_num[0]) // если возможных номеров меньше существующих номеров (на сим карте)
-       AddEditNewNumber();
-       return;
+    {         
+      //  if (bin_num_index == -1 && ((app->alloc_num[1] > app->alloc_num[0]) || SMS_phoneBookIndex > 0) ) // если возможных номеров меньше существующих номеров (на сим карте)
+      //    AddEditNewNumber();
+      // else
+       if (bin_num_index == -1 && ((total_bin_num > app->alloc_num[2]) && SMS_phoneBookIndex == 0) ) {//Если в массиве бинарных номеров еще не все элементы заняты
+          app->phones_on_sim[app->alloc_num[2]] = stringnum_to_bin(String(SMS_text_num));          
+            //++app->alloc_num[2];
+            app->_CreateFile(3);
+            app-> saveFile("/PhoneBook.bin");
+            sendSMS(String(SMS_incoming_num), F("New BIN File genereted"));  
+      }   
+      else if ((app->alloc_num[1] == app->alloc_num[0]) || (total_bin_num == app->alloc_num[2]))
+      // Все номера на СИМ карте и в памяти заняты
+           sendSMS(String(SMS_incoming_num), F("Memory is FULL ! Delete some numbers before adding NEW."));
+      else sendSMS(String(SMS_incoming_num), F("Number allready exist."));
+     return;
     }  
   else if (_command == "Del"){ // удалить один номер с СИМ карты
     if (SMS_phoneBookIndex > 0)
@@ -891,13 +904,20 @@ void made_action()
       t_last_command = millis(); 
       SIM800.println("AT+CPBW=" + String(SMS_phoneBookIndex));
     }
+    if (bin_num_index != -1) {
+      app->phones_on_sim[bin_num_index] = 0;          
+            //++app->alloc_num[2];
+      app->_CreateFile(3);
+      app-> saveFile("/PhoneBook.bin");
+      sendSMS(String(SMS_incoming_num), F("New BIN File genereted"));  
+    }    
     return;
   } 
  
   else if (_command == "Rds") { // прочитать список номеров с сим карты и создать файл
     // exist_numer();  //на старте выяснить сколько номеров уже есть в текущей книге и сколько всего возможно
      if (app->alloc_num[0] == 0) 
-       sendSMS(String(SMS_incoming_num), "Phone Book is EMPTY. NO File genereted");
+       sendSMS(String(SMS_incoming_num), F("Phone Book is EMPTY. NO File genereted"));
      else {
          flag_modem_resp = 5; //Выставляем флаг для отслеживания OK
          clear_arrey();
@@ -907,26 +927,25 @@ void made_action()
      }
       return;
     }
-/*     
-  else if (msg.indexOf("Bin") > -1) { // прочитать список номеров с сим карты и создать бинарный файл
-     exist_numer();  // выяснить сколько номеров уже есть в текущей книге и сколько всего возможно
-     if (alloc_num[0] == 0) 
-       sendSMS(incoming_phone, "Phone Book is EMPTY. NO File genereted");
+    
+  else if (_command == "Bin") { // прочитать список номеров с сим карты и создать бинарный файл
+     if (app->alloc_num[2] == 0) 
+       sendSMS(String(SMS_incoming_num), "BIN Phone Book is EMPTY. NO File genereted");
      else {
-       temp_respons =F("AT+CPBF"); command_type = 3; // установить тип команды для модема
-       temp_respons = sendATCommand(temp_respons,true); command_type = 0;
+         app->_CreateFile(3);
+         app-> saveFile("/PhoneBook.bin");
+       sendSMS(String(SMS_incoming_num), "New BIN File genereted");         
       // просмотреть сохраненные в двоичном массиве номера
-       for (uint8_t v = 0; v < 250; ++v){
-            if (app->phones_on_sim[v] > 0){
-              Serial.println(app->phones_on_sim[v], BIN);              
-              Serial.println(app->phones_on_sim[v], DEC);
-              Serial.println(BINnum_to_string(app->phones_on_sim[v])); // перевести двоичный вид номера в строку
-            } 
-        }
-       sendSMS(incoming_phone, "New BIN File genereted");
+      //  for (uint8_t v = 0; v < total_bin_num; ++v){
+      //       if (app->phones_on_sim[v] > 0){
+      //         Serial.println(app->phones_on_sim[v], BIN);              
+      //         Serial.println(app->phones_on_sim[v], DEC);
+      //         Serial.println(BINnum_to_string(app->phones_on_sim[v])); // перевести двоичный вид номера в строку
+      //       } 
+      //   }
      }
     }  
-    */ 
+
   else if (_command == "Dan") { //Delete All Numbers удалить все номера из СИМ карты
       clear_arrey();  // чистим массив номеров и коментариев
       command_type = 5;   // 5 -  удалить все номера из СИМ карты
