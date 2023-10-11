@@ -194,7 +194,8 @@ public:
   ESPWebMQTTRelay() : ESPWebMQTTBase() {}
   void switchRelay(int8_t id, bool on); // Процедура включения/выключения реле
   int8_t relayPin[maxRelays]; // Пины, к которым подключены реле (-1 - не подключено)
-
+  uint16_t writeConfig(bool commit = true);
+  
 protected:
   void setupExtra();
   void loopExtra();
@@ -202,7 +203,7 @@ protected:
   uint16_t readRTCmemory();
   uint16_t writeRTCmemory();
   uint16_t readConfig();
-  uint16_t writeConfig(bool commit = true);
+
   void defaultConfig(uint8_t level = 0);
   bool setConfigParam(const String& name, const String& value);
 

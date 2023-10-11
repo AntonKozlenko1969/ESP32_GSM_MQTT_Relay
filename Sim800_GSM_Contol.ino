@@ -51,7 +51,7 @@ bool comand_OK = false; // признак успешного выполнени�
 TaskHandle_t Task3; // Задача для ядра 0
 
 //Переменные для работы с SMS
-char SMS_incoming_num[DIGIT_IN_PHONENAMBER+1]; // номер с которого пришло СМС - для ответной СМС
+char SMS_incoming_num[DIGIT_IN_PHONENAMBER+7]; // номер с которого пришло СМС - для ответной СМС
 char SMS_text_num[DIGIT_IN_PHONENAMBER+1];  // номер телефона из СМС
 char SMS_text_comment[5+1]; // комментарий к номеру из СМС
 char SMS_text_comanda[3+1]; // команда из СМС
@@ -423,7 +423,7 @@ void Sim800_loop() {
 if (millis() > 60*60*1000*30)   ESP.restart();
 
 // Опросить модем раз в указанный интервал
-  if (millis() - t_rst > 5*60*1000 && modemOK ) 
+  if (millis() - t_rst > 15*60*1000 && modemOK ) 
  { 
    if (_step == 0 && command_type == 0 && flag_modem_resp==0)
     {command_type = 11;
@@ -434,7 +434,7 @@ if (millis() > 60*60*1000*30)   ESP.restart();
  }
 
  // Если есть проблемы с модемом попытаться сбросить модем
- if (!modemOK && millis() - t_rst > 17*60*1000) 
+ if (!modemOK && millis() - t_rst > 18*60*1000) 
    {    
      if (_step == 0 && command_type == 0)
       {command_type = 6; 
@@ -731,27 +731,35 @@ void parseSMS(String msg) {                                   // Парсим SM
   msgheader = msg.substring(0, msg.indexOf('\r'));            // Выдергиваем телефон
 
   msgbody = msg.substring(msgheader.length() + 2);
+
   msgbody = msgbody.substring(0, msgbody.lastIndexOf("OK"));  // Выдергиваем текст SMS
   msgbody.trim();
 
   int firstIndex = msgheader.indexOf("\",\"") + 3;
   int secondIndex = msgheader.indexOf("\",\"", firstIndex);
-  firstIndex = secondIndex - 8;
+
+  //firstIndex = secondIndex - 8;
   msgphone = msgheader.substring(firstIndex, secondIndex);
   // Записать номер с которого пришло СМС в глобальную переменную для общего доступа
-  for (uint8_t j=0; j < DIGIT_IN_PHONENAMBER; ++j)
-      SMS_incoming_num[j] = msgphone[j];
-  
+  for (uint8_t j=0; j < msgphone.length()+1; ++j){
+      if (j == msgphone.length())
+        SMS_incoming_num[j] = NULL;  // если последний символ - добавить нулл в массив для финализации строки
+      else  SMS_incoming_num[j] = msgphone[j];
+  }
+ // получить короткий номер с которого было послано СМС - последние симолы 
+  String short_INnumber =String(SMS_incoming_num).substring(String(SMS_incoming_num).length()-(DIGIT_IN_PHONENAMBER-1));
    #ifndef NOSERIAL 
     Serial.println("Phone: " + msgphone);                       // Выводим номер телефона
     Serial.println("Message: " + msgbody);                      // Выводим текст SMS
     Serial.println("SMS_incoming_num : " + String(SMS_incoming_num)); //.c_str());  // Выводим текст SMS    
+    Serial.println("short_INnumber: " + short_INnumber);     
   #endif
 // Далее пишем логику обработки SMS-команд.
   // Здесь также можно реализовывать проверку по номеру телефона
   // И если номер некорректный, то просто удалить сообщение.
   
-  if (msgphone.length() > 6 && whiteListPhones.indexOf(msgphone) > -1) { // Если телефон в белом списке, то...
+ // if (msgphone.length() > 6 && whiteListPhones.indexOf(msgphone) > -1) { // Если телефон в белом списке, то...
+  if (String(SMS_incoming_num).length() > 6 && whiteListPhones.indexOf(short_INnumber) > -1) {
     #ifndef NOSERIAL 
      Serial.println("Comand from WHITE phonenumber");                          // ...выполняем команду
     #endif
@@ -767,16 +775,16 @@ void parseSMS(String msg) {                                   // Парсим SM
 }
 
 // Удаление любых пробелов из строки
-String probel_remove(String msg){
+String probel_remove(const String& msg){
    String temp_resp="";
   for (uint8_t j=0; j < msg.length(); ++j) {
-     if (msg.charAt(j) != ' ') temp_resp += msg.charAt(j);
+     if (msg[j] != ' ') temp_resp += msg[j];
   }
   return temp_resp; 
 }
 
 // проверка номера на вхождение в белый список 
-bool number_on_white_list(String num_phone){
+bool number_on_white_list(const String& num_phone){
   bool temp_ret = false;  
   if (num_phone.length() > 6 && whiteListPhones.indexOf(num_phone) > -1)  // Если телефон в белом списке
      temp_ret = true;
@@ -785,7 +793,7 @@ bool number_on_white_list(String num_phone){
 }
 
 //выяснение полученой по SMS команды
-void madeSMSCommand(String msg, String incoming_phone){
+void madeSMSCommand(const String& msg, const String& incoming_phone){
   // очистить все переменные
   SMS_phoneBookIndex=0; // сбросить индекс искомого номера из СМС
   IsComment=false;  //признак наличия прикрепленного к номеру комментария  
@@ -859,11 +867,11 @@ void madeSMSCommand(String msg, String incoming_phone){
        if (j<5 && IsComment) SMS_text_comment[j] = comment[j] ; // комментарий к номеру из СМС      
       }
 
-   #ifndef NOSERIAL 
-    Serial.println("Glob Phone: " + String(SMS_text_num));     
-    Serial.println("Glob comment: " + String(SMS_text_comment));      
-    Serial.println("Glob command : " + String(SMS_text_comanda)); 
-  #endif
+  //  #ifndef NOSERIAL 
+  //   Serial.println("Glob Phone SMS_text_num: " + String(SMS_text_num));     
+  //   Serial.println("Glob comment SMS_text_comment: " + String(SMS_text_comment));      
+  //   Serial.println("Glob command SMS_text_comanda: " + String(SMS_text_comanda)); 
+  // #endif
 
    // ответ будет "+CPBF:"
   flag_modem_resp = 2; // установить флаг ослеживания ответа OK для одинократного поиска номера "+CPBF:"
@@ -881,10 +889,9 @@ void made_action()
   //Выполнить комаду
   if (_command == "Add")  //Добавить новый номер на СИМ карту или в бинарный массив если на сим уже нет места.
     {         
-      //  if (bin_num_index == -1 && ((app->alloc_num[1] > app->alloc_num[0]) || SMS_phoneBookIndex > 0) ) // если возможных номеров меньше существующих номеров (на сим карте)
-      //    AddEditNewNumber();
-      // else
-       if (bin_num_index == -1 && ((total_bin_num > app->alloc_num[2]) && SMS_phoneBookIndex == 0) ) {//Если в массиве бинарных номеров еще не все элементы заняты
+       if (bin_num_index == -1 && ((app->alloc_num[1] > app->alloc_num[0]) || SMS_phoneBookIndex > 0) ) // если возможных номеров меньше существующих номеров (на сим карте)
+         AddEditNewNumber();
+      else if (bin_num_index == -1 && ((total_bin_num > app->alloc_num[2]) && SMS_phoneBookIndex == 0) ) {//Если в массиве бинарных номеров еще не все элементы заняты
           app->phones_on_sim[app->alloc_num[2]] = stringnum_to_bin(String(SMS_text_num));          
             //++app->alloc_num[2];
             app->_CreateFile(3);
@@ -950,7 +957,80 @@ void made_action()
       clear_arrey();  // чистим массив номеров и коментариев
       command_type = 5;   // 5 -  удалить все номера из СИМ карты
       return;      
-  }        
+  }     
+  else if (_command == "Rms") { //Передать СМС с списком мастер номеров
+      sendSMS(String(SMS_incoming_num), whiteListPhones);
+      return;      
+  } 
+  else if (_command == "Wms") { //Добавить номер в список мастер номеров
+      if (whiteListPhones.indexOf(String(SMS_text_num)) > -1) {  //если номер уже есть в белом списке - выйти
+         sendSMS(String(SMS_incoming_num), "Number " + String(SMS_text_num) + "already exists in WhiteList.");        
+        return;
+      }  
+      if (whiteListPhones.length() > 20) {  //если уже есть 3 номера в белом списке - выйти
+        sendSMS(String(SMS_incoming_num), "WhiteList is FULL.");        
+        return;
+      }        
+      if (whiteListPhones.length() > 8) whiteListPhones += ',' + String(SMS_text_num);
+      app ->_whiteListPhones = whiteListPhones;
+      app -> writeConfig();
+      sendSMS(String(SMS_incoming_num), "New WHITE number " + String(SMS_text_num) + " Added successfully. New WhiteList: " + whiteListPhones);      
+      return;      
+  } 
+  else if (_command == "Dms") { //Удалить номер из списка мастер номеров
+      if (whiteListPhones.indexOf(String(SMS_text_num)) == -1) { //если номера нет в белом списке - выйти  
+      sendSMS(String(SMS_incoming_num), "The number " + String(SMS_text_num) + " is not included in the white list.");      
+      return;   
+      }      
+ // получить короткий номер с которого было послано СМС - последние симолы 
+  String short_INnumber =String(SMS_text_num).substring(String(SMS_text_num).length()-(DIGIT_IN_PHONENAMBER-1)); 
+   #ifndef NOSERIAL 
+    Serial.println("short_INnumber: " + short_INnumber);     
+   #endif       
+      if (String(SMS_incoming_num).indexOf(short_INnumber) > -1) {//если есть попытка удалить свой номер из белого списка - выйти  
+       sendSMS(String(SMS_incoming_num), "It is not possible to delete your own number " + String(SMS_text_num));      
+      return;   
+      }  
+      char WtNum[3][DIGIT_IN_PHONENAMBER+1];
+      int wn=0; int cwn=0;
+      for (int j=0; j<3; ++j) {WtNum[j][0]=NULL; WtNum[j][DIGIT_IN_PHONENAMBER]=NULL;}
+
+      for (int j=0; j<whiteListPhones.length(); ++j){
+        if (cwn == DIGIT_IN_PHONENAMBER) {
+          WtNum[wn][cwn]=NULL;
+          ++wn; cwn=0;
+         }
+        else {
+          WtNum[wn][cwn] = whiteListPhones[j]; ++cwn;          
+        }
+      } 
+     #ifndef NOSERIAL 
+         Serial.println("*****************"); 
+         Serial.println(String(WtNum[0])); Serial.println(String(WtNum[1])); Serial.println(String(WtNum[2]));
+         Serial.println("*****************");
+     #endif
+      String NewWhiteList="";    
+      for (int j=0; j<3; ++j) {  
+        if (String(WtNum[j]).indexOf(String(SMS_text_num)) > -1) { //если удаляемый номер
+          WtNum[j][0]=NULL;
+        }
+        if (WtNum[j][0] !=NULL)
+          if (j == 0) NewWhiteList += String(WtNum[j]); 
+          else {NewWhiteList +=','; NewWhiteList += String(WtNum[j]);}
+      }  
+   #ifndef NOSERIAL       
+         Serial.println("*** FAZA 2 ***"); 
+         Serial.println(String(WtNum[0])); Serial.println(String(WtNum[1])); Serial.println(String(WtNum[2]));
+         Serial.println(NewWhiteList); 
+         Serial.println("*****************");
+   #endif
+        whiteListPhones = NewWhiteList;
+        app ->_whiteListPhones = whiteListPhones;
+        app -> writeConfig();     
+      sendSMS(String(SMS_incoming_num), "New WHITE number " + String(SMS_text_num) + " Deleted successfully. New WhiteList: " + whiteListPhones);      
+         
+      return;      
+  }               
   else if (_command == "Res") { //Restore сохранить все номера из файла PhoneBookNew.txt в СИМ карту
       clear_arrey();  // чистим массив номеров и коментариев
       app->readTXTfile();

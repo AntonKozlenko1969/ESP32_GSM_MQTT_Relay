@@ -202,6 +202,7 @@ protected:
 
   virtual uint16_t readConfig(); // Чтение конфигурационных параметров из EEPROM
   virtual uint16_t writeConfig(bool commit = true); // Запись конфигурационных параметров в EEPROM
+
   virtual void commitConfig(); // Подтверждение сохранения EEPROM
   virtual void defaultConfig(uint8_t level = 0); // Установление параметров в значения по умолчанию
   virtual bool setConfigParam(const String& name, const String& value); // Присвоение значений параметрам по их имени
