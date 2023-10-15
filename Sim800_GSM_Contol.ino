@@ -288,12 +288,18 @@ void GPRS_modem_traffic( void * pvParameters ){
      }
      else if(_step == 1) {
        PIN_ready = false; command_type = 6; CALL_ready = false;// переход к команде сброса, шаг 13 - ожидание ответа PIN READY
-       _step = 12; modemOK=false; // создать условие для одноразового прохода
+       _step = 14; modemOK=false; // создать условие для одноразового прохода
       _comm=F("+CCALR?;+CPIN?"); _povtor = 1;// запрос на готовность симки (отсутствие PIN) и готовность сети
       goto sendATCommand;
      }
    }
-
+  else if (command_type == 30) //выполнить одиночную команду для модема
+   { if (_step == 0){ 
+       _step = 14;  // создать условие для одноразового прохода
+       _comm=String(SIM800_com30_text); _povtor = 0;
+       goto sendATCommand;
+     }
+   }
   else if (command_type != 0)  // если тип команды задан, но не обработан - сбросить все значения
    {_step = 0; command_type = 0; _comm="";}
 
@@ -509,7 +515,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
           Serial.println("Call from BIN number");
         #endif        
       }  
-      else  SIM800.println("ATH"); // Если нет, то отклоняем вызов
+      else add_in_queue_comand(30, "H"); //SIM800.println("ATH"); // Если нет, то отклоняем вызов
 
     }
     //********* проверка отправки SMS ***********
@@ -534,7 +540,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
       #ifndef NOSERIAL        
         Serial.print("new mess "); Serial.println(result);
       #endif
-      SIM800.println("AT+CMGR=" + result);// Получить содержимое SMS
+      //SIM800.println("AT+CMGR=" + result);// Получить содержимое SMS
+      add_in_queue_comand(30, "+CMGR=" + result);
     }
     else if (_response.indexOf(F("+CMGR:")) > -1) {    // Пришел текст SMS сообщения 
       // #ifndef NOSERIAL  
@@ -622,7 +629,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
         #ifndef NOSERIAL        
           Serial.println ("Message was sent. OK");
         #endif
-        command_type = 9; // удалить все SMS, чтобы не забивали память модуля  
+        //command_type = 9; // удалить все SMS, чтобы не забивали память модуля  
+        add_in_queue_comand(9,"");
         flag_modem_resp=0;        
       }
       else if (flag_modem_resp==2 && millis() > t_last_command) // завершен одиночный поиск номера из СМС - приступить к выполнению команды
@@ -740,11 +748,11 @@ if (SIM800.available())   {                   // Если модем, что-т�
   if (command_type == 0 && _step == 0) {
    mod_com  modem_comand;
    if (xQueueReceive(queue_comand, &modem_comand, 0) == pdTRUE){
-      command_type = modem_comand.com;
       for (int8_t v=0; v<max_text_com; ++v) {
-       SIM800_com30_text[v] = modem_comand.text_com[v];
+       SIM800_com30_text[v] = modem_comand.text_com[v]; //АТ команда без АТ +команда....
        if (modem_comand.text_com[v] == NULL) break;
       } 
+      command_type = modem_comand.com;      
    }
   }
 }
@@ -797,7 +805,8 @@ void parseSMS(String msg) {                                   // Парсим SM
    #ifndef NOSERIAL       
     Serial.println("Unknown phonenumber");
    #endif     
-    command_type = 9; // удалить все SMS, чтобы не забивали память модуля      
+    //command_type = 9; // удалить все SMS, чтобы не забивали память модуля   
+    add_in_queue_comand(9,"");
     }
 }
 
@@ -836,14 +845,15 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   String SMSResp_Mess =""; 
   if (firstIndex == -1 || firstIndex > 3 || msg.length() < 13) //неверный формат SMS сообщения
   {// SMSResp_Mess="Wrong SMS format '" + msg + "' " + "\r\n" + "Must be: COM#PHONECOMMENT" + "\r\n" + "COM-3 simvols (necessarily) command" + "\r\n" + "PHONE-9 digit (necessarily)" + "\r\n" + "COMMENT-5 simvols (not necessarily)" ;
+    String eol_eor = F("\r\n");
     SMSResp_Mess  =F("Wrong SMS format");
-    SMSResp_Mess += "\r\n";
+    SMSResp_Mess += eol_eor;
     SMSResp_Mess +=F("Must be: COM#PHONECOMMENT"); 
-    SMSResp_Mess +="\r\n";
+    SMSResp_Mess += eol_eor;
     SMSResp_Mess +=F("COM-3 simvols (necessarily) command");  
-    SMSResp_Mess +="\r\n";
+    SMSResp_Mess += eol_eor;
     SMSResp_Mess +=F("PHONE-9 digit (necessarily)");      
-    SMSResp_Mess +="\r\n";
+    SMSResp_Mess += eol_eor;
     SMSResp_Mess +=F("COMMENT-5 simvols (not necessarily)");            
 
     sendSMS(incoming_phone, SMSResp_Mess);
@@ -872,7 +882,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
 
   if (phoneNUM.length() > DIGIT_IN_PHONENAMBER){
     SMSResp_Mess += F("Wrong phonenumber: more then ");
-    SMSResp_Mess += String(DIGIT_IN_PHONENAMBER);
+    SMSResp_Mess += DIGIT_IN_PHONENAMBER;
     SMSResp_Mess += F(" digits.");
     #ifndef NOSERIAL     
       Serial.println(SMSResp_Mess);
@@ -882,7 +892,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   }
   if (phoneNUM.length() < DIGIT_IN_PHONENAMBER){
     SMSResp_Mess += F("Wrong phonenumber: less then ");
-    SMSResp_Mess += String(DIGIT_IN_PHONENAMBER);
+    SMSResp_Mess += DIGIT_IN_PHONENAMBER;
     SMSResp_Mess += F(" digits.");
     #ifndef NOSERIAL     
       Serial.println(SMSResp_Mess);
@@ -917,13 +927,14 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
    // ответ будет "+CPBF:"
   flag_modem_resp = 2; // установить флаг ослеживания ответа OK для одинократного поиска номера "+CPBF:"
   t_last_command = millis(); 
-     SMSResp_Mess = F("AT+CPBF=\"");
+     SMSResp_Mess = F("+CPBF=\"");
      SMSResp_Mess += phoneNUM;
      SMSResp_Mess += F("\"");
    #ifndef NOSERIAL 
     Serial.println("Comanda: " + SMSResp_Mess);     
    #endif
-  SIM800.println(SMSResp_Mess);//Найти номер в книге, phonen_index если нет 0  
+  //SIM800.println(SMSResp_Mess);//Найти номер в книге, phonen_index если нет 0  
+  add_in_queue_comand(30,SMSResp_Mess);
 }
  
 // Функция выполнения команды полученной по СМС
@@ -959,9 +970,10 @@ void made_action()
     {
       flag_modem_resp = 4; //Выставляем флаг для отслеживания OK 
       t_last_command = millis(); 
-      temp_respons = F("AT+CPBW=");
+      temp_respons = F("+CPBW=");
       temp_respons += String(SMS_phoneBookIndex);
-      SIM800.println(temp_respons);
+      //SIM800.println(temp_respons);
+      add_in_queue_comand(30,temp_respons);
     }
     if (bin_num_index != -1) {
       app->phones_on_sim[bin_num_index] = 0;          
@@ -981,7 +993,8 @@ void made_action()
          flag_modem_resp = 5; //Выставляем флаг для отслеживания OK
          clear_arrey();
          t_last_command = millis(); 
-         SIM800.println(F("AT+CPBF"));          
+         //SIM800.println(F("AT+CPBF"));   
+         add_in_queue_comand(30,"+CPBF");
          app->_CreateFile(1);
      }
       return;
@@ -1007,7 +1020,8 @@ void made_action()
 
   else if (_command == F("Dan")) { //Delete All Numbers удалить все номера из СИМ карты
       clear_arrey();  // чистим массив номеров и коментариев
-      command_type = 5;   // 5 -  удалить все номера из СИМ карты
+      //command_type = 5;   // 5 -  удалить все номера из СИМ карты
+      add_in_queue_comand(5,"");
       return;      
   }     
   else if (_command == F("Rms")) { //Передать СМС с списком мастер номеров
@@ -1101,7 +1115,8 @@ void made_action()
   else if (_command == F("Res")) { //Restore сохранить все номера из файла PhoneBookNew.txt в СИМ карту
       clear_arrey();  // чистим массив номеров и коментариев
       app->readTXTfile();
-      command_type = 4;   // 4 - скопировать с файла PhoneBookNew.txt все номера на СИМ      
+      //command_type = 4;   // 4 - скопировать с файла PhoneBookNew.txt все номера на СИМ      
+      add_in_queue_comand(4,"");
       return;      
   } 
   /*  
@@ -1207,46 +1222,54 @@ void made_action()
  }
 
 void sendSMS(String phone, String message){
-  String _tempSTR = F("AT+CMGS=\"");
+  String _tempSTR = F("+CMGS=\"");
   _tempSTR += phone;
-  _tempSTR += "\"\n"; //*********!!!!!!!!!!!!!!******************S
+  _tempSTR += F("\"\n"); //*********!!!!!!!!!!!!!!******************S
   _tempSTR += message;
-  _tempSTR += "\r\n";
+  _tempSTR += F("\r\n");
   _tempSTR += (String)((char)26);
    #ifndef NOSERIAL 
     Serial.println("SMS out: " + _tempSTR);
   #endif  
-    SIM800.println(_tempSTR);
-    command_type = 30; // 30 - признак отправки СМС - предотвращает опрос модема
+    //SIM800.println(_tempSTR);
+    //command_type = 30; // 30 - признак отправки СМС - предотвращает опрос модема
+    add_in_queue_comand(30,_tempSTR);
 }
 
 //Добавление (или изменение) номера в справочную книгу
 void AddEditNewNumber(){
-  String temp_resp="";
-    temp_resp = FPSTR("AT+CPBW=");
-    if (SMS_phoneBookIndex>0)  temp_resp += String(SMS_phoneBookIndex); // если такой номер уже есть - изменить его, а не добавлять новый
-    temp_resp += ",\""; 
-    temp_resp += String(SMS_text_num); 
+ const String temp1=String(SMS_phoneBookIndex);
+ const String temp2=String(SMS_text_num);
+ const String temp3=String(SMS_text_comment);
+  String temp_resp="";  
+    temp_resp = FPSTR("+CPBW=");
+    if (SMS_phoneBookIndex>0)  temp_resp += temp1; // если такой номер уже есть - изменить его, а не добавлять новый
+    temp_resp += F(",\""); 
+    temp_resp += temp2; 
     temp_resp += F("\",129,\""); 
-    temp_resp += String(SMS_text_num);
-    if (IsComment) temp_resp += String(SMS_text_comment) ; // если есть прикрепленный к номеру комментари
-    temp_resp +="\"";
+    temp_resp += temp2;
+    if (IsComment) temp_resp += temp3 ; // если есть прикрепленный к номеру комментари
+    temp_resp +=F("\"");
    flag_modem_resp = 3; //Выставляем флаг для отслеживания OK 
    t_last_command = millis(); 
-   SIM800.println(temp_resp);
+   //SIM800.println(temp_resp);
+   add_in_queue_comand(30,temp_resp);
 }
 
 // процедура выясняет количество имеющихся номеров в книге и общее возможное количество и сохранет их в массив alloc_num[]
 void exist_numer(){
-  SIM800.println(F("AT+CPBS?"));
+  //SIM800.println(F("AT+CPBS?"));
+  add_in_queue_comand(30,"+CPBF?");
   return;
 }
 
 // Если звонок от БЕЛОГО номера - ответить, включить реле и сбросить вызов
 void regular_call()
-{ SIM800.println(F("ATA"));   // Если да, то отвечаем на вызов    
+{ //SIM800.println(F("ATA"));   // Если да, то отвечаем на вызов   
+  add_in_queue_comand(30,"A") ;
   app->switchRelay(0, true); // Если да, то включаем LED
-  SIM800.println(F("ATH")); // Завершаем вызов
+  //SIM800.println(F("ATH")); // Завершаем вызов
+  add_in_queue_comand(30, "H");
 }
 
 void clear_arrey(){
