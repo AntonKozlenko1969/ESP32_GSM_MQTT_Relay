@@ -24,7 +24,7 @@ extern "C" {
 /* !!!! При первой загрузе скетча в ESP32 необходимо ОТФОРМАТИРОВАТЬ SPIFFS
     Для этого установить  FORMAT_SPIFFS_IF_FAILED true !!!!
     Потом исправить в false и загрузить скетч повторно !!!!! */
-  #define FORMAT_SPIFFS_IF_FAILED false
+  #define FORMAT_SPIFFS_IF_FAILED true
   #include <Update.h>
 #endif
 
