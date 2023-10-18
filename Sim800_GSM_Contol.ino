@@ -207,6 +207,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       break;  
     case 4:
       _comm=F("+CFUN=1"); _povtor = 2;  // Full functionality (Default)
+      _interval = 10; // ожидает готовность сети интервал в секундах ожидания ответа от модема      
       goto sendATCommand;
       break;   
     case 5:
@@ -215,10 +216,11 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       break;      
     case 6:  
       _comm=F("+CMGF=1"); _povtor = 1;  // Включить TextMode для SMS (0-PDU mode)
+      _interval = 10; // интервал в секундах ожидания ответа от модема
       goto sendATCommand;
       break;       
     case 7:
-      _comm=F("+CPIN?;+CCALR?"); _povtor = 1;// запрос на готовность симки (отсутствие PIN) и готовность звонков
+      _comm=F("+CPIN?;+CCALR?"); _povtor = 1;// запрос на готовность симки (отсутствие PIN) и готовность звонков +CCALR?
       goto sendATCommand;
       break;      
     case 8:
@@ -226,7 +228,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       goto sendATCommand;
       break;   
     case 9: 
-      _comm=F("+CLIP=1;"); _povtor = 2;// Включаем АОН
+      _comm=F("+CLIP=1;+CCALR?"); _povtor = 2;// Включаем АОН
       goto sendATCommand;
       break;    
    
@@ -234,7 +236,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
 // Отключить вывод текущей временной зоны при каждом входящем звонке
 // AT+CLTS=0
     case 10:
-      _comm=F("+CLTS=0;+CCALR?"); _povtor = 2;
+      _comm=F("+CLTS=0"); _povtor = 2;
       goto sendATCommand;
       break;   
    
@@ -242,7 +244,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
 // AT+CUSD=0
     case 11:
       _comm=F("+CUSD=0;+CCALR?;+CPBS?"); _povtor = 2; // выяснить количество номеров на СИМ
-      _interval = 10; // интервал в секундах ожидания ответа от модема
+      _interval = 15; // интервал в секундах ожидания ответа от модема
       goto sendATCommand;
       break;  
     case 12:
@@ -438,7 +440,8 @@ void Sim800_setup() {
     app->phones_on_sim[v] = 0;
 
    app->readBINfile();
-  
+   app->readTXTCSVfile();
+   
    queue_comand = xQueueCreate(max_queue, sizeof(mod_com)); // очередь передачи команд в модуль SIM800 размер - int8_t [max_stec]
    queue_IN_SMS = xQueueCreate(max_queue, sizeof(int)); // очередь обработки СМС
 
@@ -486,6 +489,7 @@ void add_in_queue_comand(int _inncomand, const String& _inn_text_comand, int _co
 
    modem_comand.com = _inncomand;
    modem_comand.com_flag = _com_flag;
+   //_inn_text_comand.toCharArray(modem_comand.text_com, _inn_text_comand.length());
    for (int v=0; v<max_text_com; ++v) {
      modem_comand.text_com[v] = _inn_text_comand[v];
      if (_inn_text_comand[v] == NULL) break;
@@ -704,6 +708,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     }    
     if (_response.indexOf(F("OK")) > -1) {
       comand_OK = true;
+      String SMSResp_Mess;
       String temp_string = String(SMS_currentIndex);
         // #ifndef NOSERIAL        
         //   Serial.println("OK resiv start flag_modem_resp = " + String(flag_modem_resp));  
@@ -758,20 +763,21 @@ if (SIM800.available())   {                   // Если модем, что-т�
              } 
           flag_modem_resp=0;                    
            if (count_row>0)  
-           {                    
+           { SMSResp_Mess = F("New TXT File created"); 
            #ifndef NOSERIAL     
              Serial.println("TXT create File"); 
            #endif 
            }
            else
-           {
+           { SMSResp_Mess = F("NO TXT File created"); 
            #ifndef NOSERIAL     
              Serial.println("NO TXT File"); 
            #endif 
-           }       
+           }    
+         sendSMS(String(SMS_incoming_num), SMSResp_Mess);    // отправить СМС с ответом              
         }        
       else if (flag_modem_resp==3 && millis() > t_last_command) // завершено одиночное добавление / редактирование номера из СМС - отправить ответ
-      { String SMSResp_Mess;
+      { // String SMSResp_Mess;
          exist_numer(); // обновить количества использованных и доступных номеров на СИМ
          if (SMS_phoneBookIndex==0) { //Добавить новый номер
           SMSResp_Mess  =F("Phone-");
@@ -800,7 +806,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         sendSMS(String(SMS_incoming_num), SMSResp_Mess);    // отправить СМС с ответом
       } 
       else if (flag_modem_resp==4 && millis() > t_last_command) // завершено одиночное удаление номера из СМС - отправить ответ
-      { String SMSResp_Mess;
+      { //String SMSResp_Mess;
         SMSResp_Mess  =F("Phone-");
         SMSResp_Mess += String(SMS_text_num);
        if (SMS_phoneBookIndex > 0)
@@ -1018,7 +1024,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
 
    // ответ будет "+CPBF:"
   //flag_modem_resp = 2; // установить флаг ослеживания ответа OK для одинократного поиска номера "+CPBF:"
-     t_last_command = millis(); 
+    // t_last_command = millis(); 
      SMSResp_Mess = F("+CPBF=\"");
      SMSResp_Mess += phoneNUM;
      SMSResp_Mess += F("\"");
@@ -1062,7 +1068,7 @@ void made_action()
     if (SMS_phoneBookIndex > 0)
     {
       //flag_modem_resp = 4; //Выставляем флаг для отслеживания OK 
-      t_last_command = millis(); 
+      //t_last_command = millis(); 
       temp_respons = F("+CPBW=");
       temp_respons += String(SMS_phoneBookIndex);
       //SIM800.println(temp_respons);
@@ -1091,7 +1097,7 @@ void made_action()
      else {
          //flag_modem_resp = 5; //Выставляем флаг для отслеживания OK
          clear_arrey();
-         t_last_command = millis(); 
+         //t_last_command = millis(); 
          //SIM800.println(F("AT+CPBF"));   
          add_in_queue_comand(30,"+CPBF", 5);
          app->_CreateFile(1);
@@ -1352,7 +1358,7 @@ void AddEditNewNumber(){
     if (IsComment) temp_resp += temp3 ; // если есть прикрепленный к номеру комментари
     temp_resp +=F("\"");
    //flag_modem_resp = 3; //Выставляем флаг для отслеживания OK 
-   t_last_command = millis(); 
+   //t_last_command = millis(); 
    //SIM800.println(temp_resp);
    add_in_queue_comand(30,temp_resp, 3);
 }

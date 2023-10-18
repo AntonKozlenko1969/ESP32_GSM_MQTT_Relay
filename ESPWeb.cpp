@@ -1549,6 +1549,47 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string) {
   return  _resp;
 }
 
+// прочитать текстовый файл c 2000 номерами и заполить номерами массив и создать новый BIN файл
+void ESPWebBase::readTXTCSVfile() {
+  bool isnum=true; // признак, что весь текст из цифр
+  int16_t ind =0; //текущий индекс считанного номера
+  String buffer;
+  String file_nume=F("/Nomera2000.txt");
+   File PhoneFile =  SPIFFS.open(file_nume, FILE_READ);
+ if (!PhoneFile) { 
+   _log->println(F("- failed to open CSV file")); 
+      #ifndef NOSERIAL 
+       Serial.println("- failed to open CSV file");
+      #endif
+   return;
+  }
+  while (PhoneFile.available()) {//Читаем содержимое файла
+    buffer = PhoneFile.readStringUntil('\n');//Считываем с карты весь дотекст в строку до символа окончания.
+    if (buffer.length() == DIGIT_IN_PHONENAMBER+1){
+    //char charBuf[buffer.length()+1];
+    //buffer.toCharArray(charBuf, buffer.length());  
+     isnum=true; // признак, что весь текст из цифр
+     for (int v=0; v < DIGIT_IN_PHONENAMBER; ++v) {
+       if (buffer[v]<48 || buffer[v]>57) // если число ничего не делать
+           {isnum=false; 
+             #ifndef NOSERIAL 
+                Serial.print ("NOT INT value = "); Serial.println(buffer[v]);
+             #endif
+           break;} // если не числовой символ выставить флаг и выйти из цикла
+     }
+     if (isnum){
+         phones_on_sim[ind]=0;
+       for (int8_t g=0; g < buffer.length(); ++g)
+         phones_on_sim[ind] |= uint64_t(buffer[g] - '0') << (60-g*4); 
+       ++ind;
+      //  #ifndef NOSERIAL 
+      //   Serial.print(String(ind)); Serial.print(" - "); Serial.println(buffer); // для отладки отправляем по UART все что прочитали с карты.
+      //  #endif       
+     } 
+    }
+  }           
+}
+
 void ESPWebBase::readBINfile() {
   String file_nume=F("/PhoneBook.bin");
   File PhoneFile =  SPIFFS.open(file_nume, FILE_READ);
