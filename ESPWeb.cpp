@@ -1563,7 +1563,7 @@ void ESPWebBase::readTXTCSVfile() {
       #endif
    return;
   }
-  while (PhoneFile.available()) {//Читаем содержимое файла
+  while (PhoneFile.available()) {  //Читаем содержимое файла
     buffer = PhoneFile.readStringUntil('\n');//Считываем с карты весь дотекст в строку до символа окончания.
     if (buffer.length() == DIGIT_IN_PHONENAMBER+1){
     //char charBuf[buffer.length()+1];
@@ -1579,15 +1579,17 @@ void ESPWebBase::readTXTCSVfile() {
      }
      if (isnum){
          phones_on_sim[ind]=0;
-       for (int8_t g=0; g < buffer.length(); ++g)
+       for (int8_t g=0; g < buffer.length()-1; ++g)
          phones_on_sim[ind] |= uint64_t(buffer[g] - '0') << (60-g*4); 
-       ++ind;
+
       //  #ifndef NOSERIAL 
       //   Serial.print(String(ind)); Serial.print(" - "); Serial.println(buffer); // для отладки отправляем по UART все что прочитали с карты.
-      //  #endif       
+      //  #endif  
+       ++ind;            
      } 
     }
-  }           
+  } 
+  alloc_num[2] = ind;          
 }
 
 void ESPWebBase::readBINfile() {

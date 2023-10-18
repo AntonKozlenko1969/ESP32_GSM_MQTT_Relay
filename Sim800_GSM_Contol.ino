@@ -440,8 +440,13 @@ void Sim800_setup() {
     app->phones_on_sim[v] = 0;
 
    app->readBINfile();
-   app->readTXTCSVfile();
    
+  //  #ifndef NOSERIAL 
+  //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
+  //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
+  //  }
+  //  #endif 
+
    queue_comand = xQueueCreate(max_queue, sizeof(mod_com)); // очередь передачи команд в модуль SIM800 размер - int8_t [max_stec]
    queue_IN_SMS = xQueueCreate(max_queue, sizeof(int)); // очередь обработки СМС
 
@@ -1040,7 +1045,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
 void made_action()
  { String _command =String(SMS_text_comanda);
    String temp_respons;
-   int bin_num_index = poisk_num(String(SMS_text_num));// проверить наличие такого номера в массиве
+   int16_t bin_num_index = poisk_num(String(SMS_text_num));// проверить наличие такого номера в массиве
   //Выполнить комаду
   if (_command == F("Add"))  //Добавить новый номер на СИМ карту или в бинарный массив если на сим уже нет места.
     {  
@@ -1058,7 +1063,7 @@ void made_action()
             app-> saveFile(F("/PhoneBook.bin"));
             sendSMS(String(SMS_incoming_num), F("New BIN File genereted"));  
       }   
-      else if ((app->alloc_num[1] == app->alloc_num[0]) || (total_bin_num == app->alloc_num[2]))
+      else if (bin_num_index == -1 && ((app->alloc_num[1] == app->alloc_num[0]) || (total_bin_num == app->alloc_num[2])))
       // Все номера на СИМ карте и в памяти заняты
            sendSMS(String(SMS_incoming_num), F("Memory is FULL ! Delete some numbers before adding NEW."));
       else sendSMS(String(SMS_incoming_num), F("Number allready exists."));
@@ -1105,7 +1110,7 @@ void made_action()
       return;
     }
     
-  else if (_command == F("Bin")) { // прочитать список номеров с сим карты и создать бинарный файл
+  else if (_command == F("Bin")) { // создать бинарный файл из BIN64 массива
      if (app->alloc_num[2] == 0) 
        sendSMS(String(SMS_incoming_num), F("BIN Phone Book is EMPTY. NO File genereted"));
      else {
@@ -1121,8 +1126,22 @@ void made_action()
       //       } 
       //   }
      }
+     return; 
     }  
-
+  else if (_command == F("Rtb")) { //Read text to bin прочитать номера из текстового CSV файла и заполнить BIN64 массив
+     app->readTXTCSVfile();  
+  // #ifndef NOSERIAL 
+  //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
+  //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
+  //  }
+  //  #endif      
+    temp_respons = F("Allocated in array ");
+    temp_respons.reserve(temp_respons.length() + 5);
+    temp_respons += String(app->alloc_num[2]);
+    temp_respons += F(" numbers from TXT CSV file") ;
+      sendSMS(String(SMS_incoming_num), temp_respons);
+      return;         
+  }
   else if (_command == F("Dan")) { //Delete All Numbers удалить все номера из СИМ карты
       clear_arrey();  // чистим массив номеров и коментариев
       //command_type = 5;   // 5 -  удалить все номера из СИМ карты
@@ -1410,13 +1429,16 @@ int64_t stringnum_to_bin(const String& string_num){
   return _retbin;
 }
 //поиск номера в массиве двоичных номеров
-int poisk_num(const String& txt_num){
-  int _ret=-1;
+int16_t poisk_num(const String& txt_num){
+  int16_t _ret=-1;
   uint64_t found_num = stringnum_to_bin(txt_num);
   for (int v = 0; v < total_bin_num; ++v)
   { if (app->phones_on_sim[v] != 0)
        if (app->phones_on_sim[v] == found_num)
             _ret=v;
   }
+   #ifndef NOSERIAL 
+    Serial.println("BIN num " + txt_num + " is: " + String(_ret));
+  #endif    
   return _ret;
 }
