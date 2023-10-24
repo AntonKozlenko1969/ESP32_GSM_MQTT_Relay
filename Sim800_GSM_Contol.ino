@@ -37,7 +37,7 @@ const char* const comand_nume[number_comant_type] PROGMEM ={
    // - второй элемент 1 - ответить СМС : 0 - не отвечать
 const int8_t comand_prop[number_comant_type][2] PROGMEM ={{1,1},{1,1},{0,1},{0,1}, {0,1}, {0,1}, {0,1}, {1,1}, {1,1}, {0,1},
                                                           {0,0},{0,0},{0,0},{0,0}, {0,1}, {0,0}, {0,0}, {0,0}, {0,0}, {0,1}}; 
-
+const char start_SIM800_mess[9] = {0x0,0x49,0x49,0x49,0x49,0xFF,0xFF,0xFF,0xFF};
 // Set serial for debug console (to the Serial Monitor, default speed 115200)
 //#define SerialMon Serial
 // Set serial for AT commands (to the module)
@@ -62,12 +62,14 @@ const int max_text_com = 350;
 QueueHandle_t queue_comand; // очередь передачи команд в модуль SIM800 размер - int8_t [max_stec]
 QueueHandle_t queue_IN_SMS; // очередь обработки входящих СМС
 
-bool modemOK = false; 
+bool modemOK = false;  // признак работоспособности модема SIM800
 bool IsRestart = false; // признак однократной отправки Restart в модем
 bool IsOpros = false; // признак однократной отправки Opros в модем
 
 bool PIN_ready = false;
 bool CALL_ready = false;
+bool GPRS_ready = false; // признак подключения GPRS
+bool GET_GPRS_OK = false; // признак удачного HTTP GET запроса
 bool comand_OK = false; // признак успешного выполнения текущей команды
 TaskHandle_t Task3; // Задача для ядра 0
 
@@ -98,10 +100,12 @@ void GPRS_modem_traffic( void * pvParameters ){
   uint8_t g = 0; // счетчик повторов отправки команды в модем
   uint8_t _interval = 5; // интервал в секундах ожидания ответа от модема
   unsigned long _timeout = 0;        // Переменная для отслеживания таймаута (10 секунд)  
-  char SIM800_com30_text[max_text_com];
-  String _first_com;
+  String _first_com;  // строковая переменная с командой из очереди команд
   _first_com.reserve(max_text_com+1);
-
+//************************************************
+  const String apn = F("wap.orange.md"); // vremenno
+  const char GPRScomsnt[] PROGMEM = "+SAPBR=";// vremenno
+// ********************************************************
 uint8_t command_type =0; //тип отправленной в модем команды 
                          // 1 - считать весь список телефонов с СИМ, создать файл PhoneBook.txt с текстом номеров
                          // 2 - создать массив из бинарных значений номеров на СИМ карте
@@ -132,11 +136,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
   if (command_type == 0 && _step == 0) {
    mod_com  modem_comand;
    if (xQueueReceive(queue_comand, &modem_comand, portMAX_DELAY) == pdTRUE){
-      for (int8_t v=0; v<max_text_com; ++v) {
-       SIM800_com30_text[v] = modem_comand.text_com[v]; //АТ команда без АТ +команда....
-       if (modem_comand.text_com[v] == NULL) break;
-      } 
-      _first_com = String(SIM800_com30_text);
+      _first_com = String(modem_comand.text_com);
       command_type = modem_comand.com;  
       flag_modem_resp = modem_comand.com_flag;
       
@@ -170,15 +170,15 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
     // Initialize the indicator as an output
     // pinMode(LED_GPIO, OUTPUT);
     // digitalWrite(LED_GPIO, LED_OFF);
-     vTaskDelay(2000);
+     vTaskDelay(2300); // меньше чем 2,3 секунды модем еще не готов
     t_rst = millis();    
     //   goto EndATCommand; ++_step;
     //   break;    
     // case 0:    
       PIN_ready = false;
       CALL_ready = false;
-      //GPRS_ready = false; // признак подключения GPRS
-      //GET_GPRS_OK = false; // признак удачного HTTP GET запроса
+      GPRS_ready = false; // признак подключения GPRS
+      GET_GPRS_OK = false; // признак удачного HTTP GET запроса
       modemOK = false; 
       comand_OK = false;    
       _comm=""; _povtor = 1; //AT - Автонастройка скорости
@@ -198,7 +198,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       break;  
     case 4:
       _comm=F("+CFUN=1"); _povtor = 2;  // Full functionality (Default)
-      _interval = 10; // ожидает готовность сети интервал в секундах ожидания ответа от модема      
+      //_interval = 15; // ожидает готовность сети интервал в секундах ожидания ответа от модема      
       goto sendATCommand;
       break;   
     case 5:
@@ -207,7 +207,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       break;      
     case 6:  
       _comm=F("+CMGF=1"); _povtor = 1;  // Включить TextMode для SMS (0-PDU mode)
-      _interval = 10; // интервал в секундах ожидания ответа от модема
+     // _interval = 10; // интервал в секундах ожидания ответа от модема
       goto sendATCommand;
       break;       
     case 7:
@@ -222,37 +222,33 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       _comm=F("+CLIP=1;+CCALR?"); _povtor = 2;// Включаем АОН
       goto sendATCommand;
       break;    
-   
-//  sendSMS("+37369202891", "test message");
-// Отключить вывод текущей временной зоны при каждом входящем звонке
-// AT+CLTS=0
+       // AT+CLTS=0 Отключить вывод текущей временной зоны при каждом входящем звонке
+       // AT+CUSD=0 Отключить вывод дополнительной информации при каждом входящем звонке
     case 10:
-      _comm=F("+CLTS=0"); _povtor = 2;
+      _comm=F("+CLTS=0;+CUSD=0"); _povtor = 2;
       goto sendATCommand;
       break;   
    
-// Отключить вывод дополнительной информации при каждом входящем звонке
-// AT+CUSD=0
     case 11:
-      _comm=F("+CUSD=0;+CCALR?;+CPBS?"); _povtor = 2; // выяснить количество номеров на СИМ
-      _interval = 15; // интервал в секундах ожидания ответа от модема
+      _comm=F("&W"); _povtor = 1; //сохраняем значение (AT&W)!      
       goto sendATCommand;
       break;  
     case 12:
-      _comm=F("&W"); _povtor = 1; //сохраняем значение (AT&W)!
+      _comm=F("+CCALR?;+CPBS?"); _povtor = 2; // выяснить количество номеров на СИМ
+     // _interval = 15; // интервал в секундах ожидания ответа от модема
       goto sendATCommand;
       break;     
     case 13:
   _timeout = millis() + 35000;             // Переменная для отслеживания таймаута (35 секунд)
   while (!PIN_ready && !CALL_ready && millis() < _timeout)  {vTaskDelay(5);}; // Ждем ответа 35 секунд, если пришел ответ или наступил таймаут, то...   
       if (PIN_ready && CALL_ready){
-         modemOK=true; 
+         modemOK=true;    // модем готов к работе
          #ifndef NOSERIAL   
            Serial.println("                              MODEM OK");               // ... оповещаем об этом и...
          #endif    
        }
       else
-      {                                       // Если пришел таймаут, то...
+      {                                       // Если пришел таймаут, то... модем не готов к работе
         #ifndef NOSERIAL   
           Serial.println("modem Timeout...");               // ... оповещаем об этом и...
         #endif  
@@ -333,20 +329,106 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
        goto sendATCommand;
      }
    }
-  else if (command_type == 20) //выполнить начальную команду для отправки СМС
+  else if (command_type == 20) //выполнить команду для отправки СМС
    {  
-      if (_step == 0){ 
-        flag_modem_resp = 6; // флаг на ожидание приглашения для ввода текста >
-        _comm = _first_com.substring(0, _first_com.indexOf('\r')); _povtor = -1;
+      if (_step == 0){ //выполнить начальную команду для отправки СМС
+        flag_modem_resp = 6; // флаг на ожидание приглашения для ввода текста '>'
+        _comm = _first_com.substring(0, _first_com.indexOf(charCR)); // сначала передать команду до перевода каретки и дождаться приглашения для ввода текста '>'
+         _povtor = -1;
        goto sendATCommand;
       }
      else if (_step == 1){ 
         _step = 13;  // создать условие для одноразового прохода
-        _comm = _first_com.substring(_first_com.indexOf('\r')); _povtor = -1;
+        _comm = _first_com.substring(_first_com.indexOf(charCR)); // передать текст сообщения после символа перевода каретки
+        _povtor = -1;
        _interval = 25; // интервал в секундах ожидания ответа от модема
        goto sendATCommand;
       }  
    }
+
+  else if (command_type == 7) { // GPRS GET
+    switch (_step) {
+      case 0: 
+       // ++_step; goto EndATCommand;//пропустить в рабочем скетче
+       _comm=F("+HTTPSTATUS?"); _povtor = 0;        
+        goto sendATCommand;        
+        break;                 
+     case 1:
+       _povtor = 1; // установить для всех команд из этой серии
+       if (!GPRS_ready) // если модем еще не настроен на GPRS
+         { _comm = FPSTR(GPRScomsnt);
+           _comm += F("3,1,\"Contype\", \"GPRS\""); 
+            goto sendATCommand;
+         }
+       else
+        {_step=5; goto EndATCommand;}
+        break;
+     case 2:
+         _comm = FPSTR(GPRScomsnt);
+         _comm += F("3,1,\"APN\", \"");
+         _comm += apn +"\"" ; 
+        goto sendATCommand;        
+        break;  
+     case 3:
+         _comm=FPSTR(GPRScomsnt);
+         _comm += F("1,1"); 
+        goto sendATCommand;        
+        break; 
+     case 4:// проверить подключение и получить GPRS_ready
+         _comm = FPSTR(GPRScomsnt);
+         _comm += F("2,1"); 
+         _step=7; // временно, чтобы перескочить запрос, только установить GPRS соединение
+        goto sendATCommand;        
+        break; 
+    //  case 5:
+    //      _comm =F("+HTTPINIT"); 
+    //     _comm += colon;
+    //     _comm +=F("+HTTPPARA=\"CID\",1"); 
+    //     _comm += colon;        
+    //     if (GPRS_GET_messType == 0 && GPRS_GET_mess == "")
+    //         { _comm += F("+HTTPPARA=\"URL\",\"http://www.g-u.md:4369/?DoorMac=");
+    //          _comm += WiFi.macAddress() + "\"";
+    //          }
+    //     else
+    //         { _comm += F("+HTTPPARA=\"URL\",\"http://www.g-u.md:4369/?DoorMac=");
+    //          _comm += WiFi.macAddress() + '&';
+    //          _comm += FPSTR(argMessageType[GPRS_GET_messType]);
+    //          _comm += '=' + GPRS_GET_mess + "\"";
+    //         }
+    //     _comm += colon;
+    //     _comm +=F("+HTTPACTION=0");
+    //     GET_GPRS_OK = false;
+    //     goto sendATCommand;        
+    //     break; 
+    //  case 6: 
+    //     if (GET_GPRS_OK)  //если сервер ответил с кодом 200, считать содержимое ответа
+    //       { noweb=0;  
+    //         _comm=F("+HTTPREAD");
+    //         goto sendATCommand; }
+    //     else 
+    //      { ++noweb;
+    //       #ifndef NOSERIAL
+    //        Serial.println(" g-u.md fail");
+    //       #endif         
+    //        _step=7; goto EndATCommand;
+    //      }
+    //     break; 
+      case 7: 
+       _comm=F("+HTTPTERM");       
+        goto sendATCommand;        
+        break; 
+      case 8:  
+        // #ifndef NOLED   
+        //   digitalWrite(pinBuiltinLed, LOW);  // Turn the LED off by making the voltage HIGH
+        // #endif        
+         _step = 0; 
+         //RunGet=false; // снимаем флаг запуска гет запроса  
+         command_type = 0;
+         _comm="";
+      break;           
+      } // end swith select
+  } //end    if comm=7    
+
   else if (command_type != 0)  // если тип команды задан, но не обработан - сбросить все значения
    {_step = 0; command_type = 0; _comm="";}
 
@@ -359,20 +441,16 @@ sendATCommand:
    if (command_type == 20 && flag_modem_resp == 6 && _step == 13) // только при отправке текста СМС, после получения приглашения >
       flag_modem_resp = 0; // сбросить флаг и передать толко текст сообщения
    else
-     _comm = "AT" + _comm; 
+     _comm = "AT" + _comm; // + String(charCR); //Добавить в конце командной строки <CR>
 
      if (flag_modem_resp != 0) t_last_command = millis();
-
-  #ifndef NOSERIAL
-   //if (_comm.indexOf("+HTTPINIT") > -1 || _comm.indexOf("+HTTPTERM") > -1)
-   // {
-   Serial.print("                              Command ");  Serial.println(_comm);   // Дублируем команду в монитор порта
-   // }
-  #endif
    g=0;
   do {
   comand_OK = false;
   SIM800.println(_comm);       // Отправляем команду модулю
+     #ifndef NOSERIAL
+       Serial.print("                              Command : ");  Serial.println(_comm);   // Дублируем команду в монитор порта
+     #endif  
   _timeout = millis() + _interval * 1000;     // Переменная для отслеживания таймаута (5 секунд)
     while (!comand_OK && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
                vTaskDelay(100);
@@ -399,7 +477,7 @@ sendATCommand:
   } // end ATCommand
 
   EndATCommand:
-    vTaskDelay(3);
+    vTaskDelay(1);
   }
 }
 
@@ -469,6 +547,7 @@ void Sim800_setup() {
     //     Serial.print(F(" sms "));Serial.println((const int8_t)pgm_read_word(&comand_prop[g][1]));
     //   } 
     // #endif    
+   // add_in_queue_comand(7,"", 0); //включить режим GPRS 
 }
 
 //Добавление нового СМС в очередь на обработку
@@ -534,6 +613,8 @@ if (millis() > 60*60*1000*30)   ESP.restart();
 if (SIM800.available())   {                   // Если модем, что-то отправил...
      _response = SIM800.readStringUntil('\n');             // Получаем ответ от модема для анализа
     //_response = SIM800.readString();             // Получаем ответ от модема для анализа    
+    _response.trim();
+    if (_response == "") _response = SIM800.readStringUntil('\n');
       #ifndef NOSERIAL      
         Serial.println("          " + _response);                  // Если нужно выводим в монитор порта  
       #endif 
@@ -631,7 +712,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
       add_in_queue_SMS(result.toInt());
     }
     else if (_response.indexOf(F("+CMGR:")) > -1) {    // Пришел текст SMS сообщения 
-        _response += '\r' + SIM800.readString();    
+        _response += '\r' + SIM800.readStringUntil('\n'); //.readString();    
         parseSMS(_response);        // Распарсить SMS на элементы
     }
     else if (_response.indexOf(F("+CPBS:")) > -1){ // выяснить количество занятых номеров на СИМ и общее возможное количество
@@ -691,8 +772,41 @@ if (SIM800.available())   {                   // Если модем, что-т�
              Serial.println("numer text= " + _response);              
            #endif                                  
        }    
-
     }    
+    else if (_response.indexOf(F("+SAPBR:")) > -1){
+         if (_response.indexOf(F("+SAPBR: 1,1")) > -1) 
+            {
+              GPRS_ready = true;
+        #ifndef NOSERIAL   
+          Serial.println("+SAPBR OBMEN OK GPRS_ready *********************************** !!!!");
+        #endif               
+              }
+         else if (_response.indexOf(F("+SAPBR: 1,2")) > -1 || _response.indexOf(F("+SAPBR: 1,3")) > -1)
+           {
+             GPRS_ready = false;
+        #ifndef NOSERIAL   
+          Serial.println("+SAPBR OBMEN NOT GPRS_ready xxxxxxxxxxxxxxxxxxxx !!!!");
+        #endif             
+           }
+       }  
+       else if (_response.indexOf(F("+HTTPACTION:")) > -1){
+        #ifndef NOSERIAL  
+        //******************
+        //modemInfo = PultServMess; // временно для отслеживания ответа при ошибках
+        //*******************
+        #endif        
+         if (_response.indexOf(F("+HTTPACTION: 0,200")) > -1) {
+           GET_GPRS_OK = true;
+        // #ifndef NOSERIAL   
+        //   Serial.println("OBMEN OK GET_GPRS_OK *********************************** !!!!");
+        // #endif             
+           }
+         else {GET_GPRS_OK = false;
+        // #ifndef NOSERIAL   
+        //   Serial.println("OBMEN NOT GET_GPRS_OK xxxxxxxxxxxxxxxxxxxx !!!!");
+        // #endif           
+          }
+       }           
     if (_response.indexOf(F("OK")) > -1) {
       comand_OK = true;
       String SMSResp_Mess;
@@ -1320,10 +1434,12 @@ void sendSMS(const String& phone, const String& message){
   String _tempSTR = F("+CMGS=\"");
   _tempSTR += phone;
   _tempSTR += charQuote; //F("\"");
-  _tempSTR += charCR; // F("\r"); //*********!!!!!!!!!!!!!!******************S
+  _tempSTR += charCR; // F("\r"); //*********!!!!!!!!!!!!!!******************
   _tempSTR += message;
-  //_tempSTR += F("\r");
+  //_tempSTR += F("\r\n"); //charCR + charLF; 
+  //_tempSTR.reserve(_tempSTR.length()+5);
   _tempSTR += (String)((char)26);
+  //_tempSTR += '\r' + NULL; //F("\r\0");  
    #ifndef NOSERIAL 
     Serial.println("SMS out: " + _tempSTR);
   #endif  
