@@ -37,14 +37,14 @@ const char* const comand_nume[number_comant_type] PROGMEM ={
    // - второй элемент 1 - ответить СМС : 0 - не отвечать
 const int8_t comand_prop[number_comant_type][2] PROGMEM ={{1,1},{1,1},{0,1},{0,1}, {0,1}, {0,1}, {0,1}, {1,1}, {1,1}, {0,1},
                                                           {0,0},{0,0},{0,0},{0,0}, {0,1}, {0,0}, {0,0}, {0,0}, {0,0}, {0,1}}; 
-const char start_SIM800_mess[9] = {0x0,0x49,0x49,0x49,0x49,0xFF,0xFF,0xFF,0xFF};
+//const char start_SIM800_mess[9] = {0x0,0x49,0x49,0x49,0x49,0xFF,0xFF,0xFF,0xFF};
 // Set serial for debug console (to the Serial Monitor, default speed 115200)
 //#define SerialMon Serial
 // Set serial for AT commands (to the module)
 //#define SIM800  Serial1
 
 String _response = "";              // Переменная для хранения ответа модуля
-String whiteListPhones ; //= "69202891"; // Белый список телефонов максимум 3 номера по 8 симолов
+String whiteListPhones ;  // Белый список телефонов максимум 3 номера по 8 симолов
 
 unsigned long t_rst = 0; //120*1000; // отследить интервал для перезапуска модема
 
@@ -344,7 +344,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
         _step = 13;  // создать условие для одноразового прохода
         _comm = _first_com.substring(_first_com.indexOf(charCR)); // передать текст сообщения после символа перевода каретки
         _povtor = -1;
-       _interval = 25; // интервал в секундах ожидания ответа от модема
+       _interval = 55; // интервал в секундах ожидания ответа от модема
        goto sendATCommand;
       }  
    }
@@ -387,17 +387,12 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
     //      _comm =F("+HTTPINIT"); 
     //     _comm += colon;
     //     _comm +=F("+HTTPPARA=\"CID\",1"); 
-    //     _comm += colon;        
-    //     if (GPRS_GET_messType == 0 && GPRS_GET_mess == "")
-    //         { _comm += F("+HTTPPARA=\"URL\",\"http://www.g-u.md:4369/?DoorMac=");
-    //          _comm += WiFi.macAddress() + "\"";
-    //          }
-    //     else
-    //         { _comm += F("+HTTPPARA=\"URL\",\"http://www.g-u.md:4369/?DoorMac=");
-    //          _comm += WiFi.macAddress() + '&';
-    //          _comm += FPSTR(argMessageType[GPRS_GET_messType]);
-    //          _comm += '=' + GPRS_GET_mess + "\"";
-    //         }
+    //     _comm += colon;
+
+    //     _comm += F("+HTTPPARA=\"URL\",\"");
+    //     _comm += _first_com; // атрибут адреса из очереди команд
+    //     _comm += "\"";
+
     //     _comm += colon;
     //     _comm +=F("+HTTPACTION=0");
     //     GET_GPRS_OK = false;
@@ -405,7 +400,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
     //     break; 
     //  case 6: 
     //     if (GET_GPRS_OK)  //если сервер ответил с кодом 200, считать содержимое ответа
-    //       { noweb=0;  
+    //       {
     //         _comm=F("+HTTPREAD");
     //         goto sendATCommand; }
     //     else 
@@ -936,7 +931,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     }
   #endif
   
-  if (SMS_currentIndex == 0) {// Если нет СМС в обработке  - проверить очередь
+  if (SMS_currentIndex == 0 && modemOK) {// Если нет СМС в обработке  - проверить очередь
      if (xQueueReceive(queue_IN_SMS, &SMS_currentIndex, 0) == pdTRUE)  //Если нет СМС в обработке - записать в переменную SMS_currentIndex - номер СМС из очереди
         add_in_queue_comand(30, "+CMGR=" + String(SMS_currentIndex), 0);  //ОТправить входящую СМС на считывание содержания и обработку
   }

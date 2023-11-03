@@ -990,7 +990,9 @@ return true;\n\
 
 // Добавлено для сохранения 3-х белых номеров по 8 симолов
   page += F("\n\
-<label>White Phones List (max 3 numbers per 9 simbols) 123456789,123456789,123456789 :</label><br/>\n");
+<label>White Phones List (max 3 numbers per ");
+  page += DIGIT_IN_PHONENAMBER;
+  page += F(" simbols) 123456789,123456789,123456789 :</label><br/>\n");
   page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramWhiteList), _whiteListPhones, String(F("maxlength=")) + String(maxStringLen));
   page += F("\n*<p>\n");
   page += ESPWebBase::tagInput(FPSTR(typeSubmit), strEmpty, F("Save"));
