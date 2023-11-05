@@ -47,6 +47,16 @@ String _response = "";              // Переменная для хранен�
 String whiteListPhones ;  // Белый список телефонов максимум 3 номера по 8 симолов
 
 unsigned long t_rst = 0; //120*1000; // отследить интервал для перезапуска модема
+//************** MQTT GPRS SETUP
+//mqtt://gumoldova822:7iVIJbwz3VI8HaXd@gumoldova822.cloud.shiftr.io
+const char MQTT_user[15] PROGMEM = "gumoldova822" ;  // api.cloudmqtt.com > Details > User  
+const char MQTT_pass[20] PROGMEM = "7iVIJbwz3VI8HaXd";  // api.cloudmqtt.com > Details > Password
+const char MQTT_type[15] PROGMEM = "MQIsdp";        // тип протокола НЕ ТРОГАТЬ !
+char MQTT_CID[29]; // app->_mqttClient;        // уникальное имя устройства в сети MQTT
+const String MQTT_SERVER = "gumoldova822.cloud.shiftr.io" ;   // api.cloudmqtt.com > Details > Server  сервер MQTT брокера
+const String PORT = "1883";                      // api.cloudmqtt.com > Details > Port    порт MQTT брокера НЕ SSL !
+
+
 
 // Организация стека номеров команд и текста команд для отправки в модуль 
 // для предотвращения одновременной отправки команды в модем при выполнении текущей команды
@@ -71,6 +81,7 @@ bool CALL_ready = false;
 bool GPRS_ready = false; // признак подключения GPRS
 bool GET_GPRS_OK = false; // признак удачного HTTP GET запроса
 bool comand_OK = false; // признак успешного выполнения текущей команды
+bool MQTT_connect = false; //признак подключения к MQTT серверу
 TaskHandle_t Task3 = NULL; // Задача для ядра 0
 
 //Переменные для работы с SMS
@@ -91,6 +102,7 @@ int8_t flag_modem_resp = 0; // Признак сообщения получен�
                             // 4 - +CPBW: завершено одиночное удаление номера из СМС - отправить ответ
                             // 5 - +CPBF: просмотр всех номеров из СМС - создание текстового файла
                             // 6 - > - запрос на ввод текста сообщения при его отправке после команды +CMGS
+                            // 8 - > - запрос на ввод данных для их отправки на MQTT сервер
 
 void GPRS_modem_traffic( void * pvParameters ){
   int _num_index = 0; //счетчик номеров из телефонной книги при записи номеров из массива на СИМ
@@ -114,7 +126,7 @@ uint8_t command_type =0; //тип отправленной в модем ком�
                          // 5 - удалить все номера из сим карты
                          // 6 - reset sim800
                          // 7 - GET GPRS запрос
-                         // 8 - завершить вызов "ATH"
+                         // 8 - подключиться к MQTT серверу
                          // 9 - удалить все SMS
                          // 11 - тестовый опрос модема раз в 5 минут
                          // 20 - команда начальной отправки СМС
@@ -419,7 +431,27 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
 
       } // end swith select
   } //end    if comm=7    
-
+  else if (command_type == 8) { // connect to MQTT server
+    switch (_step) {
+      case 0: 
+       _comm  = F("+CIPSTART=\"TCP\",\"");
+       _comm += MQTT_SERVER;
+       _comm += F("\",\"");
+       _comm += PORT;
+       _comm += F("\""); _povtor = -1;     
+        goto sendATCommand;        
+        break;      
+      case 1: 
+       _comm  = F("+CIPSEND"); _povtor = -1;  
+        goto sendATCommand;        
+        break;    
+      case 2: 
+       _step = 14; 
+       MQTT_CONNECT ();
+        goto EndATCommand;          
+        break;                            
+      } // end swith select  
+  } // end    if comm=8 
   else if (command_type != 0)  // если тип команды задан, но не обработан - сбросить все значения
    {_step = 0; command_type = 0; _comm="";}
 
@@ -429,7 +461,7 @@ sendATCommand:
 
   if (command_type != 0) {
    _AT_ret=false;
-   if (command_type == 20 && flag_modem_resp == 6 && _step == 13) // только при отправке текста СМС, после получения приглашения >
+   if ((flag_modem_resp == 6 || flag_modem_resp == 8) && _step == 13) // только при отправке текста СМС, после получения приглашения >
       flag_modem_resp = 0; // сбросить флаг и передать толко текст сообщения
    else
      _comm = "AT" + _comm + String(charCR); //Добавить в конце командной строки <CR>
@@ -463,7 +495,48 @@ sendATCommand:
         if (g > _povtor) break; //  return modemStatus;}
      ++g;
    } while ( !comand_OK );   // Не пускать дальше, пока модем не вернет ОК  
-    comand_OK=false; // снять признак выполнения команды
+
+   if (_comm.indexOf(F("+HTTPACTION")) > -1){ // ожидание ответа от модема "+HTTPACTION: 0,200"
+     g=0; _AT_ret = false; _povtor= -1;
+  do {  
+    _timeout = millis() + 6000;             // Переменная для отслеживания таймаута (5 секунд)
+    while (!GET_GPRS_OK && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
+          vTaskDelay(100);
+      
+       if (GET_GPRS_OK)  _AT_ret=true;
+       else
+        {                                       // Если пришел таймаут, то...
+          //_AT_ret = false;      
+          #ifndef NOSERIAL   
+          Serial.println("GET_GPRS_OK Timeout...");               // ... оповещаем об этом и...
+          #endif  
+         }      
+
+        if (g > _povtor) break; //  return modemStatus;}
+     ++g;
+     } while ( !GET_GPRS_OK );   // Не пускать дальше, пока модем не вернет ОК       
+   }
+
+   if (_comm.indexOf(F("+CIPSTART")) > -1){ // ожидание ответа от MQTT сервера с удачным подключением CONNECT OK
+     g=0; _AT_ret = false; _povtor = 1;
+  do {  
+    _timeout = millis() + 6000;             // Переменная для отслеживания таймаута (5 секунд)
+    while (!MQTT_connect && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
+          vTaskDelay(100);
+      
+       if (MQTT_connect)  _AT_ret=true;
+       else
+        {                                       // Если пришел таймаут, то...
+          //_AT_ret = false;      
+          #ifndef NOSERIAL   
+          Serial.println("MQTT_connect Timeout...");               // ... оповещаем об этом и...
+          #endif  
+         }      
+
+        if (g > _povtor) break; //  return modemStatus;}
+     ++g;
+     } while ( !MQTT_connect );   // Не пускать дальше, пока модем не вернет ОК       
+   }   
     ++_step; //увеличить шаг на 1 для перехода к следующей команде
   } // end ATCommand
 
@@ -471,6 +544,34 @@ sendATCommand:
     vTaskDelay(1);
   }
 }
+
+void MQTT_CONNECT (){
+ SIM800.write(0x10);                                                              // маркер пакета на установку соединения
+  SIM800.write(strlen(MQTT_type)+strlen(MQTT_CID)+strlen(MQTT_user)+strlen(MQTT_pass)+12);
+  SIM800.write((byte)0),SIM800.write(strlen(MQTT_type)),SIM800.write(MQTT_type);   // тип протокола
+  SIM800.write(0x03), SIM800.write(0xC2),SIM800.write((byte)0),SIM800.write(0x3C); // просто так нужно
+  SIM800.write((byte)0), SIM800.write(strlen(MQTT_CID)),  SIM800.write(MQTT_CID);  // MQTT  идентификатор устройства
+  SIM800.write((byte)0), SIM800.write(strlen(MQTT_user)), SIM800.write(MQTT_user); // MQTT логин
+  SIM800.write((byte)0), SIM800.write(strlen(MQTT_pass)), SIM800.write(MQTT_pass); // MQTT пароль
+  MQTT_PUB ("ESP_Relay/Status", "online"); 
+  MQTT_PUB ("ESP_Relay/Relay/Confirm/1", "0"); 
+  MQTT_SUB ("ESP_Relay/Relay/Config/1");   
+
+  SIM800.write(0x1A);                                       // маркер завершения пакета
+
+}
+void  MQTT_PUB (const char MQTT_topic[15], const char MQTT_messege[15]) {          // пакет на публикацию
+
+  SIM800.write(0x30), SIM800.write(strlen(MQTT_topic)+strlen(MQTT_messege)+2);
+  SIM800.write((byte)0), SIM800.write(strlen(MQTT_topic)), SIM800.write(MQTT_topic); // топик
+  SIM800.write(MQTT_messege);   }                                                  // сообщение
+
+void  MQTT_SUB (const char MQTT_topic[15]) {                                       // пакет подписки на топик
+  
+  SIM800.write(0x82), SIM800.write(strlen(MQTT_topic)+5);                          // сумма пакета 
+  SIM800.write((byte)0), SIM800.write(0x01), SIM800.write((byte)0);                // просто так нужно
+  SIM800.write(strlen(MQTT_topic)), SIM800.write(MQTT_topic);                      // топик
+  SIM800.write((byte)0);  }     
 
 void Sim800_setup() {
     #ifdef MODEM_RST
@@ -538,7 +639,16 @@ void Sim800_setup() {
     //     Serial.print(F(" sms "));Serial.println((const int8_t)pgm_read_word(&comand_prop[g][1]));
     //   } 
     // #endif    
-   // add_in_queue_comand(7,"", 0); //включить режим GPRS 
+    add_in_queue_comand(7,"", 0); //включить режим GPRS 
+
+   app->_mqttClient.toCharArray(MQTT_CID, app->_mqttClient.length()+2);        // уникальное имя устройства в сети MQTT
+    #ifndef NOSERIAL  
+     Serial.println(app->_mqttClient);    
+     Serial.println(String(MQTT_CID));
+    #endif     
+
+    add_in_queue_comand(8,"", 8); //подключиться к MQTT серверу
+      
 }
 
 //Добавление нового СМС в очередь на обработку
@@ -613,13 +723,22 @@ if (SIM800.available())   {                   // Если модем, что-т�
     String textnumber = "";                    // переменая с текстовым значением номера из телеф. книги
     String textnumbercomment = "";            // переменая с текстовым значением коментария из телеф. книги  (не больше 6 символов)
     // ... здесь можно анализировать данные полученные от GSM-модуля
-    //********** Прием звонка от избранного номера
-    if (_response.indexOf('>') > -1 && flag_modem_resp == 6) {// запрос от модема на ввод текста сообщения
+   // Обработка MQTT
+    if (_response.indexOf(F("CLOSED")) > -1) { //ESP_Relay/Relay/Config/11
+      app->switchRelay(0, true); // включаем LED
+      //MQTT_PUB ("ESP_Relay/Relay/Confirm/1", "1"); 
+    } 
+    if (_response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) {// запрос от модема на ввод текста сообщения
        comand_OK = true; 
      #ifndef NOSERIAL      
         Serial.println("Enter SMS TEXT");                  // Если нужно выводим в монитор порта
       #endif  
-     }    
+      if (flag_modem_resp == 8) flag_modem_resp = 0; // сбросить флаг установки соединения с MQTT сервером
+     }   
+    else if (flag_modem_resp == 8)  {
+        if (_response.indexOf(F("CONNECT OK")) > -1)   MQTT_connect = true; 
+        if (_response.indexOf(F("CONNECT FAIL")) > -1) MQTT_connect = false;         
+    }
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {PIN_ready = false; modemOK = false;}
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
@@ -806,7 +925,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         //  Ans_parse(_response); //Разбор ответа от Сервера
      }                             
 
-    if (_response.indexOf(F("OK")) > -1) {
+    if (_response.indexOf(F("OK")) > -1) { // если происходит соединение с MQTT сервером отследить CONNECT OK
       comand_OK = true;
       String SMSResp_Mess;
      if (flag_modem_resp==1 && millis() > t_last_command){
@@ -923,6 +1042,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
 
      }
     //*************************************************
+ 
   }
 
   #ifndef NOSERIAL   
