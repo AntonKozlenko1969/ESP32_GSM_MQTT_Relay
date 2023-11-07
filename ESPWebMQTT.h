@@ -42,6 +42,7 @@ public:
 
   PubSubClient* pubSubClient; // Клиент MQTT-брокера
   String _mqttClient; // Имя клиента для MQTT-брокера (используется при формировании имени топика для публикации в целях различия между несколькими клиентами с идентичным скетчем)
+  virtual void mqttCallback(char* topic, byte* payload, unsigned int length); // Callback-функция, вызываемая MQTT-брокером при получении топика, на которое оформлена подписка
 
 protected:
   void setupExtra();
@@ -59,7 +60,7 @@ protected:
   String navigator();
 
   virtual bool mqttReconnect(); // Восстановление соединения с MQTT-брокером
-  virtual void mqttCallback(char* topic, byte* payload, unsigned int length); // Callback-функция, вызываемая MQTT-брокером при получении топика, на которое оформлена подписка
+ // virtual void mqttCallback(char* topic, byte* payload, unsigned int length); // Callback-функция, вызываемая MQTT-брокером при получении топика, на которое оформлена подписка
   virtual void mqttResubscribe(); // Осуществление подписки на топики
   bool mqttSubscribe(const String& topic); // Хэлпер для подписки на топик
   bool mqttPublish(const String& topic, const String& value); // Хэлпер для публикации топика

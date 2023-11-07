@@ -36,7 +36,7 @@ const char charGreater = '>';
 const char* const strEmpty = "";
 const char* const strSlash = "/";
 
-const char defSSID[] PROGMEM = "ESP8266_"; // Префикс имени точки доступа по умолчанию
+const char defSSID[] PROGMEM = "ESP_GSMRelay_"; // Префикс имени точки доступа по умолчанию
 const char defPassword[] PROGMEM = "P@$$w0rd"; // Пароль точки доступа по умолчанию
 const char defNtpServer[] PROGMEM = "pool.ntp.org"; // NTP-сервер по умолчанию
 const int8_t defNtpTimeZone = 3; // Временная зона по умолчанию (-11..13, +3 - Москва)

@@ -35,7 +35,7 @@ const int8_t maxRelays = 5; // Количество каналов реле
 const int8_t maxSchedules = 10; // Количество элементов расписания
 
 const char overSSID[] PROGMEM = "ESP_GSMRelay_"; // Префикс имени точки доступа по умолчанию
-const char overMQTTClient[] PROGMEM = "ESP_GSMRelay_"; // Префикс имени MQTT-клиента по умолчанию
+const char overMQTTClient[] PROGMEM = "ESP_GSMRelay"; // Префикс имени MQTT-клиента по умолчанию
 
 const int8_t defRelayPin[maxRelays]={33,12,14,25,13}; // Пин реле по умолчанию (-1 - не подключено) // изменено 19/04/2023
 const bool defRelayLevel = HIGH; // Уровень срабатывания реле по умолчанию
@@ -195,7 +195,8 @@ public:
   void switchRelay(int8_t id, bool on); // Процедура включения/выключения реле
   int8_t relayPin[maxRelays]; // Пины, к которым подключены реле (-1 - не подключено)
   uint16_t writeConfig(bool commit = true);
-  
+  void mqttCallback(char* topic, byte* payload, unsigned int length);  
+
 protected:
   void setupExtra();
   void loopExtra();
@@ -239,7 +240,7 @@ protected:
   String btnLDRConfig(); // HTML-код кнопки вызова настройки датчика температуры
 #endif
 
-  void mqttCallback(char* topic, byte* payload, unsigned int length);
+  //void mqttCallback(char* topic, byte* payload, unsigned int length);
   void mqttResubscribe();
   
 private:

@@ -18,7 +18,7 @@ void ESPWebMQTTBase::setupExtra() {
 }
 
 void ESPWebMQTTBase::loopExtra() {
-  if (_mqttServer != strEmpty) {
+  if (_mqttServer != strEmpty && WiFi.getMode() == WIFI_STA) {
     if (! pubSubClient->connected())
       mqttReconnect();
     if (pubSubClient->connected())
@@ -314,7 +314,7 @@ bool ESPWebMQTTBase::mqttPublish(const String& topic, const String& value) {
   _log->print(value);
   _log->println('\"');
 
-  return pubSubClient->publish(topic.c_str(), value.c_str(), true);
+  return pubSubClient->publish(topic.c_str(), value.c_str(), mqttDeviceStatusRetained);
 }
 
 void ESPWebMQTTBase::waitingMQTT() {

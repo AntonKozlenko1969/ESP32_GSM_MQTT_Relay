@@ -966,16 +966,31 @@ return true;\n\
             // Serial.print(")");
             // Serial.println((WiFi.encryptionType(g) == WIFI_AUTH_OPEN)?" ":"*");
             //   #endif
-             page +="\n<option maxlength=" + String(maxStringLen);
+            page +="\n<option maxlength="; 
+            page.reserve(page.length() + 3);
+            {String str1 = String(maxStringLen);
+            page += str1; } 
              if (ssidwifi==namewifi && _ssid.length()>0 && ssidwifi.length()>0)
                  page +=" selected value=\"";
              else    
                  page +=" value=\"";
-               
-             page += String(namewifi) + "\" >" + String(namewifi) +  " " + WiFi.RSSI(g) + "dBm" + "</option>";  
+             page += namewifi + "\" >" + namewifi +  " " + WiFi.RSSI(g) + "dBm" + "</option>";  
           }
             vTaskDelay(3);
        }
+   //** Добавить свое имя сети для выбора точки доступа ************
+   page +="\n<option maxlength=";
+    page.reserve(page.length() + 3);
+  {String str2 = String(maxStringLen);
+   page += str2; }   
+   page +=" value=\"";
+   page += FPSTR(defSSID);
+   page += getBoardId();
+   page += "\" >";
+   page += FPSTR(defSSID);
+   page += getBoardId();
+   page += "</option>";    
+   //*****************************************
    page += "\n</select>";
   }
   page += F("\n*<br/>\n\
