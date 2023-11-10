@@ -36,13 +36,38 @@ const char paramMQTTClient[] PROGMEM = "mqttclient";
   const uint8_t mqttDeviceStatusQos = 1;
   const bool mqttDeviceStatusRetained = true;
 
+// Организация стека номеров команд и текста команд для отправки в модуль 
+// для предотвращения одновременной отправки команды в модем при выполнении текущей команды
+const int max_queue = 30;
+const int max_text_com = 350;
+ typedef struct{
+     int com;     // номер команды 
+     int com_flag;    // флаг команды, для отслеживания ее выполнения при обработке сообщения "OK" от модема SIM800
+     char text_com[max_text_com]; // максимальная длина строки команд - 556 символов
+   } mod_com;
+//  bool GPRS_ready = false; // признак подключения GPRS
+//  bool MQTT_connect = false; //признак подключения к MQTT серверу
+//  bool modemOK = false;  // признак работоспособности модема SIM800
+//  bool IsOpros = false; // признак однократной отправки Opros в модем
+const char MQTT_type[15] PROGMEM =  "MQIsdp";  // "MQTT";     // тип протокола НЕ ТРОГАТЬ !
+
 class ESPWebMQTTBase : public ESPWebBase { // Расширение базового класса с поддержкой MQTT
 public:
   ESPWebMQTTBase();
 
   PubSubClient* pubSubClient; // Клиент MQTT-брокера
+  String _mqttServer; // MQTT-брокер
+  uint16_t _mqttPort; // Порт MQTT-брокера
+  String _mqttUser; // Имя пользователя для авторизации
+  String _mqttPassword; // Пароль для авторизации  
   String _mqttClient; // Имя клиента для MQTT-брокера (используется при формировании имени топика для публикации в целях различия между несколькими клиентами с идентичным скетчем)
   virtual void mqttCallback(char* topic, byte* payload, unsigned int length); // Callback-функция, вызываемая MQTT-брокером при получении топика, на которое оформлена подписка
+  virtual void add_in_queue_comand(int _inncomand, const char* _inn_text_comand, int _com_flag);
+  QueueHandle_t queue_comand; // очередь передачи команд в модуль SIM800 размер - int8_t [max_queue]
+ bool GPRS_ready = false; // признак подключения GPRS
+ bool MQTT_connect = false; //признак подключения к MQTT серверу
+ bool modemOK = false;  // признак работоспособности модема SIM800
+ bool IsOpros = false; // признак однократной отправки Opros в модем
 
 protected:
   void setupExtra();
@@ -69,12 +94,16 @@ protected:
   virtual void waitedMQTT(); // Окончание ожидания подключения к MQTT-брокеру
 
   virtual char *IPAddress2String(IPAddress ip);
+  virtual void GPRS_MQTT_Reconnect();
+  virtual void GPRS_MQTT_connect();
+  virtual void GPRS_MQTT_pub (const String& _topic, const String& _messege);
+  virtual void GPRS_MQTT_sub (const String& _topic);
 
   WiFiClient* _espClient;
-  String _mqttServer; // MQTT-брокер
-  uint16_t _mqttPort; // Порт MQTT-брокера
-  String _mqttUser; // Имя пользователя для авторизации
-  String _mqttPassword; // Пароль для авторизации
+  // String _mqttServer; // MQTT-брокер
+  // uint16_t _mqttPort; // Порт MQTT-брокера
+  // String _mqttUser; // Имя пользователя для авторизации
+  // String _mqttPassword; // Пароль для авторизации
 //  String _mqttClient; // Имя клиента для MQTT-брокера (используется при формировании имени топика для публикации в целях различия между несколькими клиентами с идентичным скетчем)
 };
 

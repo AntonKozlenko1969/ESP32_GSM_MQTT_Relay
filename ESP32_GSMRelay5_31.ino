@@ -196,6 +196,7 @@ public:
   int8_t relayPin[maxRelays]; // Пины, к которым подключены реле (-1 - не подключено)
   uint16_t writeConfig(bool commit = true);
   void mqttCallback(char* topic, byte* payload, unsigned int length);  
+  void add_in_queue_comand(int _inncomand, const char* _inn_text_comand, int _com_flag);
 
 protected:
   void setupExtra();
@@ -324,6 +325,12 @@ private:
   bool ldrMinBrightTriggered, ldrMaxBrightTriggered; // Было ли срабатывание реле по порогу освещенности?
 #endif
 };
+
+// добавление команды и текста команды в очередь
+void ESPWebMQTTRelay::add_in_queue_comand(int _inncomand, const char* _inn_text_comand, int _com_flag){
+  ESPWebMQTTBase::add_in_queue_comand(_inncomand, _inn_text_comand, _com_flag);
+ 
+}
 
 void ESPWebMQTTRelay::setupExtra() {
   ESPWebMQTTBase::setupExtra();
@@ -2745,7 +2752,7 @@ void ESPWebMQTTRelay::switchRelay(int8_t id, bool on) {
 
     digitalWrite(relayPin[id], relayLevel[id] == on);
 
-    if (pubSubClient->connected()) {
+    if (pubSubClient->connected() || MQTT_connect) {
       String topic;
 
       if (_mqttClient != strEmpty) {
@@ -2966,9 +2973,7 @@ void setup() {
   Serial.begin(115200); //, SERIAL_8N1, SERIAL_TX_ONLY);
   Serial.println();
 #endif
-
   app->_setup();
-
   Sim800_setup();
 }
 
