@@ -366,16 +366,34 @@ void ESPWebMQTTBase::waitedMQTT() {
 }
 
 void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
- const uint32_t timeout = 30000;
+  static uint32_t timeout; //  = 30000;
   static uint32_t nextTime;
-  bool result = false;
+  //bool result = false;
+  
+  static uint8_t reconnect_step;
 
   if ((int32_t)(millis() - nextTime) >= 0) {
-   if( !GPRS_ready ) // признак подключения GPRS
+   if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
-   if(!MQTT_connect) {//признак подключения к MQTT серверу
-         GPRS_MQTT_connect ();
+      reconnect_step = 1; timeout = 100;  return;  // Не подавать следующую команду пока не подключимся
+      }
+   if(!MQTT_connect && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
+         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; return; // Не подавать следующую команду пока не подключимся
+      }
+   if (reconnect_step > 1) {
+      if (MQTT_connect) {
+        String topic ;
+           topic += charSlash;
+           topic += _mqttClient;   
+           topic += mqttDeviceStatusTopic;    
+          mqttPublish(topic, mqttDeviceStatusOn); 
+          mqttResubscribe(); 
+         reconnect_step = 0; timeout = 30000;
        }
+      else { ++reconnect_step; }  
+     }
+
+    if (reconnect_step > 250) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 250 * 500
 
    nextTime = millis() + timeout;  
   }
@@ -424,8 +442,8 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
           // topic += _mqttClient;
           // topic += mqttDeviceStatusTopic;  
           
-   mqttPublish(topic, mqttDeviceStatusOn); 
-   mqttResubscribe();
+  //  mqttPublish(topic, mqttDeviceStatusOn); 
+  //  mqttResubscribe();
     // topic = charSlash;
     // topic += _mqttClient;
     // topic += F("/#");

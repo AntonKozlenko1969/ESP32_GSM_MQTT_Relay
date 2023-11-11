@@ -144,7 +144,9 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       { _step=14; SMS_currentIndex = 0; // сбросить текущую смс
         _AT_ret=true; 
       if (command_type == 7) retGetZapros(); // если сбой при выполнении GET запроса, закрыть запрос  
-         app->modemOK = false; }
+      if (command_type == 8) retTCPconnect(); // если сбой при подключении к сайту MQTT, закрыть соединение  
+      if (command_type != 7 && command_type != 8) app->modemOK = false; 
+         }
 
   // если никакая команда не исполняется и очередь пуста - задача останавливается до появления элементов в очереди
   if (command_type == 0 && _step == 0) {
@@ -536,7 +538,7 @@ sendATCommand:
    }
 
    if (_comm.indexOf(F("+CIPSTART")) > -1){ // ожидание ответа от MQTT сервера с удачным подключением CONNECT OK
-     g=0; _AT_ret = false; _povtor = 1;
+     g=0; _AT_ret = false; _povtor = -1;
   do {  
     _timeout = millis() + 6000;             // Переменная для отслеживания таймаута (5 секунд)
     while (!app->MQTT_connect && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
@@ -1651,5 +1653,13 @@ void retGetZapros(){
     // GPRS_ready = false;
      #ifndef NOSERIAL          
            Serial.print("GPRS_ready = false; "); 
+     #endif 
+}
+
+void retTCPconnect(){
+      app->add_in_queue_comand(30,"+CIPCLOSE",-1); // Закрыть текущий запрос
+    // GPRS_ready = false;
+     #ifndef NOSERIAL          
+           Serial.print("TCP_ready = false; "); 
      #endif 
 }
