@@ -373,7 +373,10 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint8_t reconnect_step;
   
    if ((int32_t)(millis() - nextTime) >= 0) {
-    
+//        #ifndef NOSERIAL  
+//         Serial.print("reconnect_step ");  
+//         Serial.println(reconnect_step);         
+//       #endif    
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
       reconnect_step = 1; timeout = 100;  return;  // Не подавать следующую команду пока не подключимся
@@ -383,7 +386,6 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       }
    if (reconnect_step > 1) {
       if (MQTT_connect) {
-        if (reconnect_step == 21) GPRS_MQTT_ping(); //только поддержать соединение
         if (reconnect_step < 21) {
            String topic ;
            topic += charSlash;
@@ -392,6 +394,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
            mqttPublish(topic, mqttDeviceStatusOn);             
            mqttResubscribe(); 
           }
+         GPRS_MQTT_ping(); //только поддержать соединение          
          reconnect_step = 21; timeout = 55000;
        }
       else { ++reconnect_step; }  
