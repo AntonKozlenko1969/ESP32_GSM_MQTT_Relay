@@ -383,12 +383,15 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       }
    if (reconnect_step > 1) {
       if (MQTT_connect) {
-        String topic ;
+        if (reconnect_step == 21) GPRS_MQTT_ping(); //только поддержать соединение
+        if (reconnect_step < 21) {
+           String topic ;
            topic += charSlash;
            topic += _mqttClient;   
            topic += mqttDeviceStatusTopic;    
-          mqttPublish(topic, mqttDeviceStatusOn); 
-          if (reconnect_step < 21) mqttResubscribe(); 
+           mqttPublish(topic, mqttDeviceStatusOn);             
+           mqttResubscribe(); 
+          }
          reconnect_step = 21; timeout = 55000;
        }
       else { ++reconnect_step; }  
@@ -479,6 +482,12 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
     for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}    
     add_in_queue_comand(8, _inn_comm, 8);
   }                                                 
+
+void ESPWebMQTTBase::GPRS_MQTT_ping () {                                // пакет пинга MQTT сервера для поддержания соединения
+  char _inn_comm[max_text_com];
+  _inn_comm[0]=0xC0; _inn_comm[1]=0x00;
+  add_in_queue_comand(8, _inn_comm, 8);  
+}
 
  void ESPWebMQTTBase::GPRS_MQTT_sub (const String& _topic) {                                       // пакет подписки на топик
   char _inn_comm[max_text_com];

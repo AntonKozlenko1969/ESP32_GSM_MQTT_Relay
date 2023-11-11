@@ -98,7 +98,7 @@ protected:
   virtual void GPRS_MQTT_connect();
   virtual void GPRS_MQTT_pub (const String& _topic, const String& _messege);
   virtual void GPRS_MQTT_sub (const String& _topic);
-
+  virtual void GPRS_MQTT_ping ();
   WiFiClient* _espClient;
   // String _mqttServer; // MQTT-брокер
   // uint16_t _mqttPort; // Порт MQTT-брокера
