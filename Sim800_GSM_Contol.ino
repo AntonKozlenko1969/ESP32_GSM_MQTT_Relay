@@ -16,7 +16,7 @@ const char str_relay[] PROGMEM = "Relay #";
 const char str_ON[] PROGMEM = " is ON";
 const char str_OFF[] PROGMEM = " is OFF";
 
-const int number_comant_type PROGMEM = 20; // общее количество возможных СМС команд
+const int number_comant_type PROGMEM = 22; // общее количество возможных СМС команд
 // Текстовое значение СМС команды
 const char* const comand_nume[number_comant_type] PROGMEM ={
                             "Add",  //Добавить новый номер на СИМ карту или в бинарный массив если на сим уже нет места.
@@ -29,14 +29,15 @@ const char* const comand_nume[number_comant_type] PROGMEM ={
                             "Wms", //Добавить номер в список мастер номеров
                             "Dms", //Удалить номер из списка мастер номеров
                             "Res", //Restore сохранить все номера из файла PhoneBookNew.txt в СИМ карту
-                            "R11", "R21", "R31", "R41", "RA1", // включить одно реле или все реле сразу - RA1
-                            "R10", "R20", "R30", "R40", "RA0"  // выключить одно реле или все реле сразу - RA0
+                            "R11", "R21", "R31", "R41", "R51","RA1", // включить одно реле или все реле сразу - RA1
+                            "R10", "R20", "R30", "R40", "R50","RA0"  // выключить одно реле или все реле сразу - RA0
                             };
 // Признак поведения для каждой команды
    // - первый элемент 1 - есть прикрепленный к команде номер : 0 - нет номера в команде (не проверять)
    // - второй элемент 1 - ответить СМС : 0 - не отвечать
-const int8_t comand_prop[number_comant_type][2] PROGMEM ={{1,1},{1,1},{0,1},{0,1}, {0,1}, {0,1}, {0,1}, {1,1}, {1,1}, {0,1},
-                                                          {0,0},{0,0},{0,0},{0,0}, {0,1}, {0,0}, {0,0}, {0,0}, {0,0}, {0,1}}; 
+const int8_t comand_prop[number_comant_type][2] PROGMEM ={{1,1},{1,1},{0,1},{0,1},{0,1}, {0,1}, {0,1}, {1,1}, {1,1}, {0,1},
+                                                          {0,0},{0,0},{0,0},{0,0},{0,0},{0,1},
+                                                          {0,0},{0,0},{0,0},{0,0},{0,0},{0,1}}; 
 //const char start_SIM800_mess[9] = {0x0,0x49,0x49,0x49,0x49,0xFF,0xFF,0xFF,0xFF};
 // Set serial for debug console (to the Serial Monitor, default speed 115200)
 //#define SerialMon Serial
@@ -238,7 +239,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       goto sendATCommand;
       break;   
     case 9: 
-      _comm=F("+CLIP=1;+CMEE=2;+CCALR?"); _povtor = 2;// Включаем АОН Задать расширенный ответ при получении ошибки
+      _comm=F("+CLIP=1;+CCALR?"); _povtor = 2;// Включаем АОН Задать расширенный ответ при получении ошибки +CMEE=2;
       goto sendATCommand;
       break;    
        // AT+CLTS=0 Отключить вывод текущей временной зоны при каждом входящем звонке
@@ -439,7 +440,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
   else if (command_type == 8) { // connect to MQTT server
     switch (_step) {
       case 0: 
-      if(app->MQTT_connect) {_step=1; goto EndATCommand;}//признак подключения к MQTT серверу
+      if(app->TCP_ready) {_step=1; goto EndATCommand;}//признак подключения к MQTT серверу
        _comm  = F("+CIPSTART=\"TCP\",\"");
        _comm += app->_mqttServer; //MQTT_SERVER;
        _comm += F("\",\"");
@@ -450,7 +451,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
         goto sendATCommand;        
         break;      
       case 1: 
-        if (!app->TCP_ready) {_step=14; goto EndATCommand;} //признак неудачного TCP подключения 
+        //if (!app->MQTT_connect) {_step=14; goto EndATCommand;} //признак неудачного TCP подключения 
        _comm  = F("+CIPSEND"); _povtor = -1;  
         goto sendATCommand;        
         break;    
@@ -494,10 +495,11 @@ sendATCommand:
        }
      } 
   }
-  else     SIM800.write(_comm.c_str());       // Отправляем AT команду модулю из строки
+  else {  SIM800.write(_comm.c_str());       // Отправляем AT команду модулю из строки
      #ifndef NOSERIAL
        Serial.print("                              Command : ");  Serial.println(_comm);   // Дублируем команду в монитор порта
      #endif  
+  }  
   _timeout = millis() + _interval * 1000;     // Переменная для отслеживания таймаута (5 секунд)
     while (!comand_OK && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
                vTaskDelay(100);
@@ -545,21 +547,21 @@ sendATCommand:
      g=0; _AT_ret = false; _povtor = -1;
   do {  
     _timeout = millis() + 6000;             // Переменная для отслеживания таймаута (5 секунд)
-    while (!app->MQTT_connect && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
+    while (!app->TCP_ready && millis() < _timeout)  // Ждем ответа 5 секунд, если пришел ответ или наступил таймаут, то...  
           vTaskDelay(100);
       
-       if (app->MQTT_connect)  _AT_ret=true;
+       if (app->TCP_ready)  _AT_ret=true;
        else
         {                                       // Если пришел таймаут, то...
           //_AT_ret = false;      
           #ifndef NOSERIAL   
-          Serial.println("MQTT_connect Timeout...");               // ... оповещаем об этом и...
+          Serial.println("TCP_ready Timeout...");               // ... оповещаем об этом и...
           #endif  
          }      
 
         if (g > _povtor) break; //  return modemStatus;}
      ++g;
-     } while ( !app->MQTT_connect );   // Не пускать дальше, пока модем не вернет ОК  
+     } while ( !app->TCP_ready );   // Не пускать дальше, пока модем не вернет ОК  
    }  
     if ((flag_modem_resp == 6 || flag_modem_resp == 8) && _step == 13) // только при отправке текста СМС, после получения приглашения >
           flag_modem_resp = 0; // сбросить флаг
@@ -699,17 +701,17 @@ if (SIM800.available())   {                   // Если модем, что-т�
     String textnumber = "";                    // переменая с текстовым значением номера из телеф. книги
     String textnumbercomment = "";            // переменая с текстовым значением коментария из телеф. книги  (не больше 6 символов)
     // ... здесь можно анализировать данные полученные от GSM-модуля
+    if (flag_modem_resp == 8)  {
+        if (_response.indexOf(F("CONNECT OK")) > -1) app->TCP_ready=true;
+        if (_response.indexOf(F("CONNECT FAIL")) > -1) { app->MQTT_connect = false; app->TCP_ready=false;}      
+    }  
     if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) {// запрос от модема на ввод текста сообщения
        comand_OK = true; 
      #ifndef NOSERIAL      
         Serial.println("Enter SMS TEXT");                  // Если нужно выводим в монитор порта
       #endif  
       //if (flag_modem_resp == 8) flag_modem_resp = 0; // сбросить флаг установки соединения с MQTT сервером
-     }   
-    else if (flag_modem_resp == 8)  {
-        if (_response.indexOf(F("CONNECT OK")) > -1)  { app->MQTT_connect = true; app->TCP_ready=true;}
-        if (_response.indexOf(F("CONNECT FAIL")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}      
-    }
+     } 
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {PIN_ready = false; app->modemOK = false;}
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
@@ -1011,21 +1013,21 @@ if (SIM800.available())   {                   // Если модем, что-т�
       else if (flag_modem_resp==2) // завершен одиночный поиск номера из СМС - приступить к выполнению команды
         flag_modem_resp=0;   
       else if (flag_modem_resp==8) {// Неудачное подключение  TCP / сервер не отвечае не пралильный IP - закрыть соединение
-        app->MQTT_connect = false;
+        app->MQTT_connect = false; app->TCP_ready=false;
         app->add_in_queue_comand(30,"+CIPCLOSE",-1); // Закрыть текущее соединение       
         flag_modem_resp=0;
       }    
      }
     //*************************************************
     // Обработка MQTT
-    if (app->MQTT_connect){
+    if (app->TCP_ready){
         // #ifndef NOSERIAL
         //   for (int h=0; h<_response.length();++h){
         //   Serial.print(_response[h], HEX); Serial.print(" ");
         //   }
         //   Serial.println("");
         // #endif              
-      if (_response[0] == 0x30)  {  // пришел ответ на публикацию в подписанном топике
+      if (_response[0] == 0x30)  { app->MQTT_connect = true;  // пришел ответ на публикацию в подписанном топике
          String s1 = "/";  // добавить слэш / для совпадения имен топиков
             s1 += _response.substring(4 , 4 + _response[3]);
         //  #ifndef NOSERIAL  
@@ -1042,8 +1044,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
         //  #endif 
          app->mqttCallback(_topik_path, _payload, 1);
         }
-      else if (_response[0] == 0x02 || _response[0] == 0x90)  comand_OK = true; // пришло сообщение о подключении или удачной подписке на топик
+      else if (_response[0] == 0x02 || _response[0] == 0x90) {app->MQTT_connect = true;}// пришло сообщение о подключении или удачной подписке на топик
       else if (_response.indexOf(F("CLOSED")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}
+      else if (_response[0] == 0xD0) {app->MQTT_connect = true;} // подтверждения ping от MQTT сервера
      }  
   }
 
@@ -1150,6 +1153,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   // очистить все переменные
   SMS_phoneBookIndex = 0; // сбросить индекс искомого номера из СМС
   num_text_comanda = -1; //номер команды из СМС в массиве команд comand_nume
+  int firstIndex = msg.indexOf('#'); 
   int is_phonenumber = 0; //в СМС должен быть номер телефона
   sms_answer = 0 ; // надо ли отвечать на входящую СМС
   IsComment=false;  //признак наличия прикрепленного к номеру комментария  
@@ -1158,17 +1162,23 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
        if (j<5) SMS_text_comment[j] = ' ';       
       }
   // Сначала выясняем команду (первые три символа) для дальнейших действий
-  String comment = msg.substring(0,3);  // команда из СМС  
-
+  String comment = msg.substring(0,firstIndex);  // команда из СМС  
+          #ifndef NOSERIAL 
+             Serial.print("*** mess - "); 
+             Serial.println(msg);         
+             Serial.print("***** SMS Comanda - "); 
+             Serial.println(comment);
+          #endif
    //От команды зависит, что делать дальше 
     // - проверять наличие прикрепленного телефона 
     // - отправлять ответную СМС или нет (ели нет то удалить текущую СМС сразу)
       for (int g=0; g < number_comant_type; ++g) {
-       if (comment == FPSTR(comand_nume[g])) {
+        if  (comment == FPSTR(comand_nume[g])) { //(comment.compareTo(FPSTR(comand_nume[g])) == 0) { 
          num_text_comanda = g; // номер команды найден в массиве команд
          is_phonenumber = (const int8_t)pgm_read_word(&comand_prop[g][0]); //в СМС должен быть номер телефона
          sms_answer = (const int8_t)pgm_read_word(&comand_prop[g][1]); // надо ли отвечать на входящую СМС         
-          #ifndef NOSERIAL          
+          #ifndef NOSERIAL   
+             Serial.println("");
              Serial.print(FPSTR(comand_nume[g])); 
              Serial.print(F(" num - "));  Serial.print((const int8_t)pgm_read_word(&comand_prop[g][0]));
              Serial.print(F(" sms - "));Serial.println((const int8_t)pgm_read_word(&comand_prop[g][1]));
@@ -1185,8 +1195,6 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
       return;
      }
 
-  int firstIndex = msg.indexOf('#'); 
- 
   if ((firstIndex == -1 || firstIndex > 3) || (is_phonenumber == 1 && msg.length() < 13)) //неверный формат SMS сообщения
   {
     //String eol_eor = F("\r\n");
@@ -1287,6 +1295,11 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
 // Функция выполнения команды полученной по СМС
 void made_action(int _command, int _answer)
  {  //String _command =String(SMS_text_comanda);
+      #ifndef NOSERIAL 
+         Serial.println("*****************"); 
+         Serial.print("_command num "); Serial.print(_command); Serial.print(" comand text "); Serial.println(FPSTR(comand_nume[_command]));
+         Serial.println("*****************");
+     #endif
    String temp_respons;
    int16_t bin_num_index = poisk_num(String(SMS_text_num));// проверить наличие такого номера в массиве
   //Выполнить комаду
@@ -1465,31 +1478,13 @@ void made_action(int _command, int _answer)
       app->add_in_queue_comand(4,"",0);// 4 - скопировать с файла PhoneBookNew.txt все номера на СИМ  
       return;      
   } 
-  else if (_command == 10) // F("R11")) { // Управлять реле через SMS  
-    { if (app->relayPin[0] != -1) {
-       app->switchRelay(0, true);
-       temp_respons = String(str_relay) + '1' + String(str_ON);
+  else if (_command > 9 && _command < 15) // F("R11")) { // Управлять реле через SMS  
+    { if (app->relayPin[_command-10] != -1) {
+       app->switchRelay(_command-10, true);
+       temp_respons = ""; //String(str_relay) + '1' + String(str_ON);
        }
    }
-   else if (_command == 11) //F("R21")) { // Управлять реле через SMS
-    { if (app->relayPin[1] != -1) {
-       app->switchRelay(1, true);
-       temp_respons = String(str_relay) + '2' + String(str_ON);
-       }       
-   }
-   else if (_command == 12) //F("R31")) { // Управлять реле через SMS
-    { if (app->relayPin[2] != -1) {
-       app->switchRelay(2, true);    
-       temp_respons = String(str_relay) + '3' + String(str_ON);
-       }
-   }         
-   else if (_command == 13) //F("R41")) { // Управлять реле через SMS 
-    { if (app->relayPin[3] != -1) {
-       app->switchRelay(3, true);
-       temp_respons = String(str_relay) + '4' + String(str_ON);
-       }       
-   }     
-   else if (_command == 14) // F("RA1")) { // Управлять реле через SMS  
+  else if (_command == 15) // F("RA1")) { // Управлять реле через SMS  
      { temp_respons = String(str_relay);
       int8_t h=0;
       for (int8_t i=0; i<maxRelays; ++i){
@@ -1505,31 +1500,13 @@ void made_action(int _command, int _answer)
       }
           temp_respons += String(str_ON);
    }     
-   else if (_command == 15) //F("R10")) { // Управлять реле через SMS  
-    { if (app->relayPin[0] != -1) {
-       app->switchRelay(0, false);
-       temp_respons = String(str_relay) + '1' + String(str_OFF);
+   else if (_command > 15 && _command < 21) //F("R10")) { // Управлять реле через SMS  
+    { if (app->relayPin[_command-16] != -1) {
+       app->switchRelay(_command-16, false);
+       temp_respons = ""; //String(str_relay) + '1' + String(str_OFF);
        }          
    }
-   else if (_command == 16) // F("R20")) { // Управлять реле через SMS
-    { if (app->relayPin[1] != -1) {
-       app->switchRelay(1, false);
-       temp_respons = String(str_relay) + '2' + String(str_OFF);
-       }         
-   }
-   else if (_command == 17) // F("R30")) { // Управлять реле через SMS
-   {  if (app->relayPin[2] != -1) {
-       app->switchRelay(2, false);
-       temp_respons = String(str_relay) + '3' + String(str_OFF);
-       }         
-   }         
-   else if (_command == 18) //F("R40")) { // Управлять реле через SMS 
-   {  if (app->relayPin[3] != -1) {
-       app->switchRelay(3, false);    
-       temp_respons = String(str_relay) + '4' + String(str_OFF);
-       }         
-   }     
-   else if (_command == 19) //F("RA0")) { // Управлять реле через SMS  
+   else if (_command == 21) //F("RA0")) { // Управлять реле через SMS  
     { temp_respons = String(str_relay);   
        int8_t h=0;
       for (int8_t i=0; i<maxRelays; ++i){
@@ -1662,7 +1639,7 @@ void retGetZapros(){
 
 void retTCPconnect(){
       app->add_in_queue_comand(30,"+CIPCLOSE",-1); // Закрыть текущий запрос
-      app->TCP_ready = false;
+      app->TCP_ready = false; app->MQTT_connect=false;
      #ifndef NOSERIAL          
            Serial.print("TCP_ready = false; "); 
      #endif 

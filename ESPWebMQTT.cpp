@@ -373,20 +373,24 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint8_t reconnect_step;
   
    if ((int32_t)(millis() - nextTime) >= 0) {
-        #ifndef NOSERIAL  
-         Serial.print("reconnect_step ");  
-         Serial.println(reconnect_step);         
-       #endif    
+       
+      //   #ifndef NOSERIAL  
+      //    Serial.print("reconnect_step ");  
+      //    Serial.print(reconnect_step);   
+      //    Serial.print(" TCP_ready ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
+      //    Serial.print(" MQTT_connect ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
+      //  #endif 
+
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
       reconnect_step = 1; timeout = 100;  return;  // Не подавать следующую команду пока не подключимся
       }
    if (GPRS_ready && reconnect_step == 0) ++reconnect_step; 
-   if(!MQTT_connect && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
+   if(!TCP_ready && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
          GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; return; // Не подавать следующую команду пока не подключимся
       }
    if (reconnect_step > 1) {
-      if (MQTT_connect && TCP_ready) {
+      if (MQTT_connect) {
         if (reconnect_step < 15) {
            String topic ;
            topic += charSlash;
@@ -401,7 +405,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       else { ++reconnect_step; }  
      }
 
-    if (reconnect_step > 20) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 250 * 500
+    if (reconnect_step > 20) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 20 * timeout
 
    nextTime = millis() + timeout;  
   }
