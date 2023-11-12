@@ -79,6 +79,7 @@ unsigned long t_rst = 0; //120*1000; // отследить интервал дл
 bool IsRestart = false; // признак однократной отправки Restart в модем
 bool PIN_ready = false;
 bool CALL_ready = false;
+//bool TCP_ready=false;
 bool GET_GPRS_OK = false; // признак удачного HTTP GET запроса
 bool comand_OK = false; // признак успешного выполнения текущей команды
 TaskHandle_t Task3 = NULL; // Задача для ядра 0
@@ -195,6 +196,8 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       CALL_ready = false;
       app->GPRS_ready = false; // признак подключения GPRS
       GET_GPRS_OK = false; // признак удачного HTTP GET запроса
+      app->MQTT_connect = false;
+      app->TCP_ready=false;
       app->modemOK = false; 
       comand_OK = false;    
       _comm=""; _povtor = 1; //AT - Автонастройка скорости
@@ -447,6 +450,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
         goto sendATCommand;        
         break;      
       case 1: 
+        if (!app->TCP_ready) {_step=14; goto EndATCommand;} //признак неудачного TCP подключения 
        _comm  = F("+CIPSEND"); _povtor = -1;  
         goto sendATCommand;        
         break;    
@@ -703,8 +707,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
       //if (flag_modem_resp == 8) flag_modem_resp = 0; // сбросить флаг установки соединения с MQTT сервером
      }   
     else if (flag_modem_resp == 8)  {
-        if (_response.indexOf(F("CONNECT OK")) > -1)   app->MQTT_connect = true; 
-        if (_response.indexOf(F("CONNECT FAIL")) > -1) app->MQTT_connect = false;         
+        if (_response.indexOf(F("CONNECT OK")) > -1)  { app->MQTT_connect = true; app->TCP_ready=true;}
+        if (_response.indexOf(F("CONNECT FAIL")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}      
     }
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {PIN_ready = false; app->modemOK = false;}
@@ -1039,7 +1043,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
          app->mqttCallback(_topik_path, _payload, 1);
         }
       else if (_response[0] == 0x02 || _response[0] == 0x90)  comand_OK = true; // пришло сообщение о подключении или удачной подписке на топик
-      else if (_response.indexOf(F("CLOSED")) > -1) app->MQTT_connect = false;
+      else if (_response.indexOf(F("CLOSED")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}
      }  
   }
 

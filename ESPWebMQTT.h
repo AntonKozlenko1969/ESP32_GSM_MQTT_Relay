@@ -68,6 +68,7 @@ public:
  bool MQTT_connect = false; //признак подключения к MQTT серверу
  bool modemOK = false;  // признак работоспособности модема SIM800
  bool IsOpros = false; // признак однократной отправки Opros в модем
+ bool TCP_ready=false;
 
 protected:
   void setupExtra();
