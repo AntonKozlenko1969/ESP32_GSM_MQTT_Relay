@@ -381,6 +381,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
       reconnect_step = 1; timeout = 100;  return;  // Не подавать следующую команду пока не подключимся
       }
+   if (GPRS_ready && reconnect_step == 0) ++reconnect_step; 
    if(!MQTT_connect && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
          GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; return; // Не подавать следующую команду пока не подключимся
       }

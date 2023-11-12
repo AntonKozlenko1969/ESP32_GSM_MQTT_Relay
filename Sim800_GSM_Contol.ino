@@ -1662,7 +1662,7 @@ void retGetZapros(){
 
 void retTCPconnect(){
       app->add_in_queue_comand(30,"+CIPCLOSE",-1); // Закрыть текущий запрос
-    // GPRS_ready = false;
+      app->TCP_ready = false;
      #ifndef NOSERIAL          
            Serial.print("TCP_ready = false; "); 
      #endif 
