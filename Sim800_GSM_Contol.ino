@@ -368,6 +368,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
    }
 
   else if (command_type == 7) { // GPRS GET
+    _interval = 55; // интервал в секундах ожидания ответа от модема  
     switch (_step) {
       case 0: 
        // ++_step; goto EndATCommand;//пропустить в рабочем скетче
@@ -438,6 +439,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       } // end swith select
   } //end    if comm=7    
   else if (command_type == 8) { // connect to MQTT server
+     _interval = 55; // интервал в секундах ожидания ответа от модема  
     switch (_step) {
       case 0: 
       if(app->TCP_ready) {_step=1; goto EndATCommand;}//признак подключения к MQTT серверу
@@ -447,7 +449,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
        _comm.reserve(_comm.length()+8);
        {String st_temp8=String(app->_mqttPort);
        _comm += st_temp8; } //PORT;
-       _comm += F("\""); _povtor = -1;     
+       _comm += F("\""); _povtor = -1;   
         goto sendATCommand;        
         break;      
       case 1: 
@@ -516,11 +518,12 @@ sendATCommand:
           Serial.print(" command_type= "); Serial.print(command_type);
           Serial.print(" _step= "); Serial.println(_step);
           #endif  
+         // if (app->SIM_fatal_error) break;
          }      
 
         if (g > _povtor) break; //  return modemStatus;}
      ++g;
-   } while ( !comand_OK );   // Не пускать дальше, пока модем не вернет ОК  
+   } while ( !comand_OK && !app->SIM_fatal_error);   // Не пускать дальше, пока модем не вернет ОК  
 
    if (_comm.indexOf(F("+HTTPACTION")) > -1){ // ожидание ответа от модема "+HTTPACTION: 0,200"
      g=0; _AT_ret = false; _povtor= -1;
@@ -540,7 +543,7 @@ sendATCommand:
 
         if (g > _povtor) break; //  return modemStatus;}
      ++g;
-     } while ( !GET_GPRS_OK );   // Не пускать дальше, пока модем не вернет ОК       
+     } while ( !GET_GPRS_OK && !app->SIM_fatal_error);   // Не пускать дальше, пока модем не вернет ОК       
    }
 
    if (_comm.indexOf(F("+CIPSTART")) > -1){ // ожидание ответа от MQTT сервера с удачным подключением CONNECT OK
@@ -561,7 +564,7 @@ sendATCommand:
 
         if (g > _povtor) break; //  return modemStatus;}
      ++g;
-     } while ( !app->TCP_ready );   // Не пускать дальше, пока модем не вернет ОК  
+     } while ( !app->TCP_ready && !app->SIM_fatal_error);   // Не пускать дальше, пока модем не вернет ОК  
    }  
     if ((flag_modem_resp == 6 || flag_modem_resp == 8) && _step == 13) // только при отправке текста СМС, после получения приглашения >
           flag_modem_resp = 0; // сбросить флаг
@@ -669,21 +672,21 @@ void Sim800_loop() {
 if (millis() > 60*60*1000*30)   ESP.restart();
 
 // Опросить модем раз в указанный интервал
-  if (millis() - t_rst > 11*60*1000 && app->modemOK && !app->IsOpros) 
+  if (millis() - t_rst > 11*60*1000 && app->modemOK && !app->IsOpros && !app->SIM_fatal_error) 
  { 
-      #ifndef NOSERIAL      
-        Serial.println("Opros Modem"); 
-      #endif  
+      // #ifndef NOSERIAL      
+      //   Serial.println("Opros Modem"); 
+      // #endif  
       app->add_in_queue_comand (11,"", 0);
       app->IsOpros = true;    
  }
 
  // Если есть проблемы с модемом попытаться сбросить модем
- if (!app->modemOK && millis() - t_rst > 3*60*1000 && !IsRestart) 
+ if (!app->modemOK && millis() - t_rst > 3*60*1000 && !IsRestart && !app->SIM_fatal_error) 
    { 
-          #ifndef NOSERIAL      
-            Serial.println("Restart Modem"); 
-          #endif  
+          // #ifndef NOSERIAL      
+          //   Serial.println("Restart Modem"); 
+          // #endif  
          app->add_in_queue_comand (6,"", 0);
          IsRestart = true; // признак однократной отправки Restart в модем                 
      // }  
@@ -707,9 +710,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
     }  
     if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) {// запрос от модема на ввод текста сообщения
        comand_OK = true; 
-     #ifndef NOSERIAL      
-        Serial.println("Enter SMS TEXT");                  // Если нужно выводим в монитор порта
-      #endif  
+    //  #ifndef NOSERIAL      
+    //     Serial.println("Enter SMS TEXT");                  // Если нужно выводим в монитор порта
+    //   #endif  
       //if (flag_modem_resp == 8) flag_modem_resp = 0; // сбросить флаг установки соединения с MQTT сервером
      } 
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
@@ -718,9 +721,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0   
     //else if (_response.indexOf("RING") > -1) { // Есть входящий вызов    
-      #ifndef NOSERIAL        
-        Serial.println("Incoming CALL");
-      #endif
+      // #ifndef NOSERIAL        
+      //   Serial.println("Incoming CALL");
+      // #endif
       int phoneindex = _response.indexOf(F("+CLIP: \""));// Есть ли информация об определении номера, если да, то phoneindex>-1
       String innerPhone = "";                   // Переменная для хранения определенного номера
       if (phoneindex >= 0) {                    // Если информация была найдена
@@ -1017,6 +1020,12 @@ if (SIM800.available())   {                   // Если модем, что-т�
         app->add_in_queue_comand(30,"+CIPCLOSE",-1); // Закрыть текущее соединение       
         flag_modem_resp=0;
       }    
+      if (_response.indexOf(F("SIM not inserted")) > -1) {
+        app->SIM_fatal_error=true;
+        #ifndef NOSERIAL        
+         Serial.println ("SIM FATAL ERROR");
+        #endif      
+      }  
      }
     //*************************************************
     // Обработка MQTT
@@ -1075,9 +1084,9 @@ void parseSMS(const String& msg) {                                   // Парс
   #ifndef NOSERIAL
     Serial.println("NEW !!! msgheader: " + msgheader);     
   #endif  
-  msgbody = msg.substring(msgheader.length() + 2);
+ // msgbody = msg.substring(msgheader.length() + 2);
 
-  msgbody = msgbody.substring(0, msgbody.lastIndexOf("OK"));  // Выдергиваем текст SMS
+  msgbody = msg.substring(msg.lastIndexOf("\"")+1);  // Выдергиваем текст SMS
   msgbody.trim();
 
    firstIndex = msgheader.indexOf("\",\"") + 3;
@@ -1106,7 +1115,10 @@ void parseSMS(const String& msg) {                                   // Парс
  // Если телефон в белом списке, то...
   if (String(SMS_incoming_num).length() > 6 && whiteListPhones.indexOf(short_INnumber) > -1) {
     #ifndef NOSERIAL 
-     Serial.println("Comand from WHITE phonenumber");                          // ...выполняем команду
+     Serial.println("Message: " + msg);                      // Выводим текст SMS
+     Serial.print("Comand from WHITE phonenumber");                          // ...выполняем команду
+     Serial.print(" mess before probel_remove - "); 
+     Serial.println(msgbody);         
     #endif
       msgbody = probel_remove(msgbody);
       madeSMSCommand(msgbody, msgphone);
@@ -1165,8 +1177,8 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   String comment = msg.substring(0,firstIndex);  // команда из СМС  
           #ifndef NOSERIAL 
              Serial.print("*** mess - "); 
-             Serial.println(msg);         
-             Serial.print("***** SMS Comanda - "); 
+             Serial.print(msg);         
+             Serial.print(" SMS Comanda - "); 
              Serial.println(comment);
           #endif
    //От команды зависит, что делать дальше 
@@ -1177,12 +1189,12 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
          num_text_comanda = g; // номер команды найден в массиве команд
          is_phonenumber = (const int8_t)pgm_read_word(&comand_prop[g][0]); //в СМС должен быть номер телефона
          sms_answer = (const int8_t)pgm_read_word(&comand_prop[g][1]); // надо ли отвечать на входящую СМС         
-          #ifndef NOSERIAL   
-             Serial.println("");
-             Serial.print(FPSTR(comand_nume[g])); 
-             Serial.print(F(" num - "));  Serial.print((const int8_t)pgm_read_word(&comand_prop[g][0]));
-             Serial.print(F(" sms - "));Serial.println((const int8_t)pgm_read_word(&comand_prop[g][1]));
-          #endif
+          // #ifndef NOSERIAL   
+          //    Serial.println("");
+          //    Serial.print(FPSTR(comand_nume[g])); 
+          //    Serial.print(F(" num - "));  Serial.print((const int8_t)pgm_read_word(&comand_prop[g][0]));
+          //    Serial.print(F(" sms - "));Serial.println((const int8_t)pgm_read_word(&comand_prop[g][1]));
+          // #endif
         }
       } 
 
@@ -1295,11 +1307,6 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
 // Функция выполнения команды полученной по СМС
 void made_action(int _command, int _answer)
  {  //String _command =String(SMS_text_comanda);
-      #ifndef NOSERIAL 
-         Serial.println("*****************"); 
-         Serial.print("_command num "); Serial.print(_command); Serial.print(" comand text "); Serial.println(FPSTR(comand_nume[_command]));
-         Serial.println("*****************");
-     #endif
    String temp_respons;
    int16_t bin_num_index = poisk_num(String(SMS_text_num));// проверить наличие такого номера в массиве
   //Выполнить комаду

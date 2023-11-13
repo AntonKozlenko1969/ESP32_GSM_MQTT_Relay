@@ -45,10 +45,7 @@ const int max_text_com = 350;
      int com_flag;    // флаг команды, для отслеживания ее выполнения при обработке сообщения "OK" от модема SIM800
      char text_com[max_text_com]; // максимальная длина строки команд - 556 символов
    } mod_com;
-//  bool GPRS_ready = false; // признак подключения GPRS
-//  bool MQTT_connect = false; //признак подключения к MQTT серверу
-//  bool modemOK = false;  // признак работоспособности модема SIM800
-//  bool IsOpros = false; // признак однократной отправки Opros в модем
+
 const char MQTT_type[15] PROGMEM =  "MQIsdp";  // "MQTT";     // тип протокола НЕ ТРОГАТЬ !
 
 class ESPWebMQTTBase : public ESPWebBase { // Расширение базового класса с поддержкой MQTT
@@ -69,6 +66,7 @@ public:
  bool modemOK = false;  // признак работоспособности модема SIM800
  bool IsOpros = false; // признак однократной отправки Opros в модем
  bool TCP_ready=false;
+ bool SIM_fatal_error=false; //признак не вставленной СИМ карты или полного сбоя GSM модема
 
 protected:
   void setupExtra();

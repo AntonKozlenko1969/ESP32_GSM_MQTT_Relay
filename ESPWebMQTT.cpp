@@ -25,7 +25,7 @@ void ESPWebMQTTBase::loopExtra() {
     if (pubSubClient->connected())
       pubSubClient->loop(); // НЕ Изменено
   }
-  if (_mqttServer != strEmpty && WiFi.getMode() != WIFI_STA && modemOK && !IsOpros) {
+  if (_mqttServer != strEmpty && WiFi.getMode() != WIFI_STA && modemOK && !IsOpros && !SIM_fatal_error) {
       GPRS_MQTT_Reconnect();
    } 
 }
