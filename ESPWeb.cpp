@@ -1494,32 +1494,22 @@ String ESPWebBase::tagInput(const String& type, const String& name, const String
   return result;
 }
 
-String ESPWebBase::_CreateFile(uint8_t command_type) {            // Функция ожидания ответа и возврата полученного результата
+String ESPWebBase::_CreateFile(uint8_t command_type) { 
   String _resp = "";                            // Переменная для хранения результата
-
-//  String resp_string = "";                      // одиночная строка из ответа
-//  int8_t pos =-1;                             // текущая позиция в считываемой строке
-//  int8_t pos_comma =-1;                    // текущий порядковый номер запятой в считываемой строке   
-//  int8_t abs_pos_comma =-1;                    // текущая абсолютная позиция запятой в считываемой строке        
-//  char resiv = 0;                               // текущий считаный символ
-//  String phone_index="";                       // строковое значение индекса номера в телефонной книге
-//  uint8_t phone_index_int=0;               // числовое значение индекса номера в телефонной книге  
-
   String file_nume="";
   if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
-            //command_type == 2  создать массив из бинарных значений номеров на СИМ карте
   if (command_type == 3) file_nume=F("/PhoneBook.bin"); // создать бинарный файл номеров
-  if (command_type == 6) { // reset SIM800
-    uint32_t now = 0;
+  // if (command_type == 6) { // reset SIM800
+  //   uint32_t now = 0;
 
-  #ifdef ESP8266 
-    now = sntp_get_current_timestamp();
-  #else
-    now = time(NULL)+_ntpTimeZone*60*60; // Added
-   #endif  
-      logDateTime(now);
-     _log->println(F(" reset SIM800"));
-   }
+  // #ifdef ESP8266 
+  //   now = sntp_get_current_timestamp();
+  // #else
+  //   now = time(NULL)+_ntpTimeZone*60*60; // Added
+  //  #endif  
+  //     logDateTime(now);
+  //    _log->println(F(" reset SIM800"));
+  //  }
 
     if (command_type == 1 || command_type == 3){
              if (SPIFFS.exists(file_nume)) {
@@ -1530,12 +1520,7 @@ String ESPWebBase::_CreateFile(uint8_t command_type) {            // Функц�
     }
 
 //*********************************************
-          //  else if (resp_string.length() > 1 ) {   //  если строка больше одного символа -сохранить в файл PhoneBook.txt
-          //     _log->println(resp_string); //Serial.print("command_type="); Serial.println(command_type);
-          //    if (command_type == 1 || command_type == 3){    //  создание файла с их перечнем
-
-
-                  // упаковка символов цифр в элемент массива по 4 бита
+                   // упаковка символов цифр в элемент массива по 4 бита
                   // номер цифры в телефоне = pos-abs_pos_comma-2   +CPBF: 1,"069202891",129,"069202891ofGU1"
                     //phones_on_sim[phone_index_int] = int64_t(1)<<63; 
                     //Serial.print("_BV(63) - "); Serial.println(int64_t(1)<<63,BIN);                       
@@ -1557,8 +1542,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string) {
   String file_nume=F("/PhoneBook.txt");
   File PhoneFile =  SPIFFS.open(file_nume, FILE_APPEND);
     if (PhoneFile) {
-      PhoneFile.print(file_num_string);
-      //if (command_type == 3) {PhoneFile.print(phones_on_sim[phone_index_int]); PhoneFile.print("\n");}
+      PhoneFile.println(file_num_string);
        PhoneFile.close(); _resp=true;
       //  _log->print(F("append row - "));       
       //  _log->print(file_num_string);
@@ -1662,7 +1646,7 @@ void ESPWebBase::readTXTfile() {
 
     char * pch;
     pch = strtok (charBuf,";");
-    String temp_resp;  
+    //String temp_resp;  
     string_position=0; //позиция в строке с 0 и т.тд.
       while (pch != NULL)
       {
@@ -1691,22 +1675,22 @@ void ESPWebBase::readTXTfile() {
                 break;
                 }
               else                
-                CommentOnSIM[v][g] = phone_comment[g];                   
+               if (g == 15-1) CommentOnSIM[v][g] = NULL;
+               else CommentOnSIM[v][g] = phone_comment[g];                   
             }  
-             temp_resp = FPSTR("AT+CPBW=");
+             //temp_resp = FPSTR("AT+CPBW=");
              if (phone_index.toInt()>0)
               {
                indexOnSim[v]=phone_index.toInt();
-               temp_resp += String(indexOnSim[v]); 
+              // temp_resp += String(indexOnSim[v]); 
               }
              else indexOnSim[v]=0; 
               
-             temp_resp += ",\""; 
-             for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; ++g) temp_resp += PhoneOnSIM[v][g]; 
-             temp_resp += "\",129,\""; 
-             temp_resp += String(CommentOnSIM[v]);
-             temp_resp +="\"";                        
-          //SIM800.println(temp_resp);
+          //    temp_resp += ",\""; 
+          //    for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; ++g) temp_resp += PhoneOnSIM[v][g]; 
+          //    temp_resp += "\",129,\""; 
+          //    temp_resp += String(CommentOnSIM[v]);
+          //    temp_resp +="\"";    
           //  #ifndef NOSERIAL            
           //   Serial.println(temp_resp);
           // #endif
