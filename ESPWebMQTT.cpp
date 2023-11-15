@@ -49,6 +49,15 @@ uint16_t ESPWebMQTTBase::readConfig() {
     }
   }
 
+   #ifndef NOSERIAL 
+    Serial.print("MQTT server: ");  Serial.print(_mqttServer); 
+    Serial.print(" port: "); Serial.print(_mqttPort);             
+    Serial.print(" user: "); Serial.print(_mqttUser);    
+    Serial.print(" pass: "); Serial.print(_mqttPassword);  
+    Serial.print(" client: "); Serial.println(_mqttClient);              
+ 
+   #endif   
+
   return offset;
 }
 
