@@ -1046,12 +1046,6 @@ void parseSMS(const String& msg) {                                   // Парс
   
  // Если телефон в белом списке, то...
   if (String(SMS_incoming_num).length() > 6 && whiteListPhones.indexOf(short_INnumber) > -1) {
-    #ifndef NOSERIAL 
-     Serial.println("Message: " + msg);                      // Выводим текст SMS
-     Serial.print("Comand from WHITE phonenumber");                          // ...выполняем команду
-     Serial.print(" mess before probel_remove - "); 
-     Serial.println(msgbody);         
-    #endif
       msgbody = probel_remove(msgbody);
       madeSMSCommand(msgbody, msgphone);
      }

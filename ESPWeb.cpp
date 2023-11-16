@@ -171,11 +171,27 @@ void ESPWebBase::_setup() {// Изменено
 }
 
 void ESPWebBase::_loop() { // Изменено
-  const uint32_t timeout = 300000; // 5 min.
+  const uint32_t timeout = 7*60000; // 7 min.
   static uint32_t nextTime = timeout;
-
+  // если указано работать как стнация, а подключения к сети нет, попробовать подключиться если такая сеть в зоне доступа
   if ((!_apMode) && (WiFi.status() != WL_CONNECTED) && ((WiFi.getMode() == WIFI_STA) || ((int32_t)(millis() - nextTime) >= 0))) {
-    setupWiFi();
+
+  int nwifi = WiFi.scanNetworks(false,false,true,75U);
+  bool WiFi_found = false;
+     if (nwifi > 0) {
+        String namewifi = "" ;
+        String ssidwifi=_ssid.c_str();
+        //_log->println(F("Scan WiFi environment."));
+        for (int g = 0; g < nwifi; ++g) {
+            // Print SSID and RSSI for each network found
+            namewifi = WiFi.SSID(g); 
+            if (ssidwifi==namewifi && _ssid.length()>0 && ssidwifi.length()>0) {
+                WiFi_found = true; break;
+             }
+          }
+       }
+
+    if (WiFi_found) setupWiFi();
     nextTime = millis() + timeout;
   }
 
@@ -363,6 +379,11 @@ uint16_t ESPWebBase::readConfig() {
     defaultConfig();
   }
 
+   #ifndef NOSERIAL 
+    Serial.print("SSID: ");  Serial.print(_ssid); 
+    Serial.print(" pass: "); Serial.println(_password);              
+   #endif  
+
   return offset;
 }
 
@@ -443,7 +464,7 @@ bool ESPWebBase::setConfigParam(const String& name, const String& value) {
 }
 
 bool ESPWebBase::setupWiFiAsStation() {
-  const uint32_t timeout = 60000; // 1 min.
+  const uint32_t timeout = 20000; // 20 sec.
   uint32_t maxTime = millis() + timeout;
 
   if (! _ssid.length()) {
@@ -936,16 +957,17 @@ return true;\n\
     page += ESPWebBase::tagInput(FPSTR(typeRadio), FPSTR(paramApMode), "0");
   page += F("Infrastructure\n<br/>\n\
 <label>SSID:</label><br/>\n");
- if (_apMode)
-  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramSSID), _ssid, String(F("maxlength=")) + String(maxStringLen));
- else{
+ //if (_apMode)
+  //page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramSSID), _ssid, String(F("maxlength=")) + String(maxStringLen));
+ //else{
+ 
   //Сканирование WiFi окружения
-  page +="<select type=\"text\" name=\"";
-  page += String(paramSSID) + "\" >";
-  int nwifi = WiFi.scanNetworks();
+  page +=F("<select type=\"text\" name=\"");
+  page += FPSTR(paramSSID);  page += F("\" >");
+  int nwifi = WiFi.scanNetworks(false,false,true,75U);
      if (nwifi > 0) {
         String namewifi = "" ;
-        String ssidwifi=_ssid.c_str();
+        const String ssidwifi = _ssid.c_str();
         _log->println(F("Scan WiFi environment."));
         for (int g = 0; g < nwifi; ++g) {
             // Print SSID and RSSI for each network found
@@ -957,42 +979,37 @@ return true;\n\
             _log->print(WiFi.RSSI(g));
             _log->print(")");            
             _log->println((WiFi.encryptionType(g) == WIFI_AUTH_OPEN)?" ":"*");
-            //    #ifndef NOSERIAL
-            // Serial.print(g + 1);
-            // Serial.print(": ");
-            // Serial.print(namewifi);
-            // Serial.print(" (");
-            // Serial.print(WiFi.RSSI(g));
-            // Serial.print(")");
-            // Serial.println((WiFi.encryptionType(g) == WIFI_AUTH_OPEN)?" ":"*");
-            //   #endif
-            page +="\n<option maxlength="; 
+            page += F("\n<option maxlength="); 
             page.reserve(page.length() + 3);
             {String str1 = String(maxStringLen);
             page += str1; } 
-             if (ssidwifi==namewifi && _ssid.length()>0 && ssidwifi.length()>0)
-                 page +=" selected value=\"";
+             if (!_apMode && ssidwifi==namewifi && _ssid.length()>0 && ssidwifi.length()>0)
+                 page +=F(" selected value=\"");
              else    
-                 page +=" value=\"";
-             page += namewifi + "\" >" + namewifi +  " " + WiFi.RSSI(g) + "dBm" + "</option>";  
+                 page +=F(" value=\"");
+             page += namewifi; page += F("\" >"); page += namewifi +  " ";
+             page += WiFi.RSSI(g);  page += F("dBm </option>");  
           }
-            vTaskDelay(3);
+         // vTaskDelay(25);
        }
+      
    //** Добавить свое имя сети для выбора точки доступа ************
+   const String boardID = getBoardId();
    page +="\n<option maxlength=";
     page.reserve(page.length() + 3);
   {String str2 = String(maxStringLen);
-   page += str2; }   
-   page +=" value=\"";
+   page += str2; }  
+   if (_apMode) page += F(" selected value=\"");
+   else page += F(" value=\"");
    page += FPSTR(defSSID);
-   page += getBoardId();
-   page += "\" >";
+   page += boardID;
+   page += F("\" >");
    page += FPSTR(defSSID);
-   page += getBoardId();
-   page += "</option>";    
+   page += boardID;
+   page += F("</option>");    
    //*****************************************
-   page += "\n</select>";
-  }
+   page += F("\n</select>");
+  //}
   page += F("\n*<br/>\n\
 <label>Password:</label><br/>\n");
   page += ESPWebBase::tagInput(FPSTR(typePassword), FPSTR(paramPassword), _password, String(F("maxlength=")) + String(maxStringLen));
@@ -1017,7 +1034,6 @@ return true;\n\
   page += F("\n\
 </form>\n");
   page += ESPWebBase::webPageEnd();
-
   httpServer->send(200, FPSTR(textHtml), page);
 }
 

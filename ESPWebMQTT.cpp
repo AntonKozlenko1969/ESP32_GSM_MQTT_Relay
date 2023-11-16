@@ -55,7 +55,6 @@ uint16_t ESPWebMQTTBase::readConfig() {
     Serial.print(" user: "); Serial.print(_mqttUser);    
     Serial.print(" pass: "); Serial.print(_mqttPassword);  
     Serial.print(" client: "); Serial.println(_mqttClient);              
- 
    #endif   
 
   return offset;
