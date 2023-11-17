@@ -16,28 +16,29 @@ const char str_relay[] PROGMEM = "Relay #";
 const char str_ON[] PROGMEM = " is ON";
 const char str_OFF[] PROGMEM = " is OFF";
 
-const int number_comant_type PROGMEM = 22; // общее количество возможных СМС команд
+const int number_comant_type PROGMEM = 23; // общее количество возможных СМС команд
 // Текстовое значение СМС команды
 const char* const comand_nume[number_comant_type] PROGMEM ={
                             "Add",  //Добавить новый номер на СИМ карту или в бинарный массив если на сим уже нет места.
                             "Del", // удалить один номер с СИМ карты
                             "Rds", // прочитать список номеров с сим карты и создать файл
-                            "Bin",  // создать бинарный файл из BIN64 массива
-                            "Rtb", //Read text to bin прочитать номера из текстового CSV файла и заполнить BIN64 массив
+                            "Bin", // создать бинарный файл из BIN64 массива
+                            "Rtb", //Read text to bin прочитать номера из файла Nomera2000.txt и заполнить BIN64 массив
                             "Dan", //Delete All Numbers удалить все номера из СИМ карты
                             "Rms", //Передать СМС со списком мастер номеров
                             "Wms", //Добавить номер в список мастер номеров
                             "Dms", //Удалить номер из списка мастер номеров
                             "Res", //Restore сохранить все номера из файла PhoneBookNew.txt в СИМ карту
                             "R11", "R21", "R31", "R41", "R51","RA1", // включить одно реле или все реле сразу - RA1
-                            "R10", "R20", "R30", "R40", "R50","RA0"  // выключить одно реле или все реле сразу - RA0
+                            "R10", "R20", "R30", "R40", "R50","RA0",  // выключить одно реле или все реле сразу - RA0
+                            "Cnf" // Создать с заменой новый файл Nomera2000.txt из имеющегося в памяти массива 2000 номеров
                             };
 // Признак поведения для каждой команды
    // - первый элемент 1 - есть прикрепленный к команде номер : 0 - нет номера в команде (не проверять)
    // - второй элемент 1 - ответить СМС : 0 - не отвечать
 const int8_t comand_prop[number_comant_type][2] PROGMEM ={{1,1},{1,1},{0,1},{0,1},{0,1}, {0,1}, {0,1}, {1,1}, {1,1}, {0,1},
                                                           {0,0},{0,0},{0,0},{0,0},{0,0},{0,1},
-                                                          {0,0},{0,0},{0,0},{0,0},{0,0},{0,1}}; 
+                                                          {0,0},{0,0},{0,0},{0,0},{0,0},{0,1}, {0,1}}; 
 // const char start_SIM800_mess[9] = {0x0,0x49,0x49,0x49,0x49,0xFF,0xFF,0xFF,0xFF};
 // bool modem_ISactiv=false;
 
@@ -461,7 +462,8 @@ sendATCommand:
         }
         SIM800.write(0x1A); //Serial.print(0x1A); Serial.println(' ');    // маркер завершения пакета для SIM800
        }
-     } 
+     }
+      flag_modem_resp = 0; // сбросить флаг 
   }
   else {  SIM800.write(_comm.c_str());       // Отправляем AT команду модулю из строки
      #ifndef NOSERIAL
@@ -532,8 +534,6 @@ sendATCommand:
      ++g;
      } while ( !app->TCP_ready && !app->SIM_fatal_error);   // Не пускать дальше, пока модем не вернет ОК  
    }  
-    if ((flag_modem_resp == 6 || flag_modem_resp == 8) && _step == 13) // только при отправке текста СМС, после получения приглашения >
-          flag_modem_resp = 0; // сбросить флаг
        
     ++_step; //увеличить шаг на 1 для перехода к следующей команде
   } // end ATCommand
@@ -562,11 +562,9 @@ void Sim800_setup() {
     SIM800.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
 
   whiteListPhones = app->_whiteListPhones; // скопировать список белых номеров сохраненных в EEPROM
-  for (int v = 0; v < total_bin_num; ++v) // обнулить все номера телефонов в массиве
-    app->phones_on_sim[v] = 0;
 
-   app->readBINfile();
-   
+   ReLoadBinMassiv(); // обнулить все номера телефонов в массиве и загрузить из BIN файла все номера 
+  
   //  #ifndef NOSERIAL 
   //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
   //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
@@ -616,6 +614,13 @@ void add_in_queue_SMS (int _innSMSindex){
         Serial.print("Add in QUEUE SMS - "); Serial.println(_innSMSindex);
       #endif       
   }
+}
+
+void ReLoadBinMassiv(){
+    for (int v = 0; v < total_bin_num; ++v) {// обнулить все номера телефонов в массиве
+    app->phones_on_sim[v] = 0;}
+   
+    app->readBINfile(); // загрузить из BIN файла все номера
 }
 
 void Sim800_loop() {
@@ -728,7 +733,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
       //flag_modem_resp = 1; //Выставляем флаг и далее при получении ответа от модема OK или ERROR понимаем отправлено СМС или нет
       t_last_command = millis();  
       #ifndef NOSERIAL        
-        Serial.println("Sending SMS");
+        Serial.print("Sending SMS ");
+        Serial.print("flag_modem_resp = "); Serial.println(String(flag_modem_resp));   
       #endif
       // Находим последний перенос строки, перед статусом
     }
@@ -747,7 +753,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
       add_in_queue_SMS(result.toInt());
     }
     else if (_response.indexOf(F("+CMGR:")) > -1) {    // Пришел текст SMS сообщения 
-        _response += '\r' + SIM800.readStringUntil('\n'); //.readString();    
+        _response += '\r' + SIM800.readStringUntil('\n'); //.readString();  читаем до конца строки (без OK) 
+        { String  temp_in = SIM800.readString(); }// если модем прислал текст сообщения, дочитываем до OK и закрываем команду
+        comand_OK = true;    
         parseSMS(_response);        // Распарсить SMS на элементы
     }
     else if (_response.indexOf(F("+CPBS:")) > -1){ // выяснить количество занятых номеров на СИМ и общее возможное количество
@@ -771,10 +779,10 @@ if (SIM800.available())   {                   // Если модем, что-т�
         textnumber =  _response.substring(firstIndex+2, firstIndex+2+DIGIT_IN_PHONENAMBER);
         textnumbercomment =_response.substring(_response.lastIndexOf(',')+2, _response.lastIndexOf('\"'));
            #ifndef NOSERIAL     
-             Serial.print("File String +CPBF: index= " + phonen_index); 
-             Serial.print(" ; number= " + textnumber);                          
-             Serial.println(" ; comment= " + textnumbercomment); 
-             Serial.println("flag_modem_resp = " + String(flag_modem_resp));              
+             Serial.print("File String +CPBF: index= "); Serial.print(phonen_index); 
+             Serial.print(" ; number= "); Serial.print(textnumber);                          
+             Serial.println(" ; comment= "); Serial.print(textnumbercomment); 
+             Serial.print("flag_modem_resp = "); Serial.println(String(flag_modem_resp));              
            #endif 
       if (flag_modem_resp == 2)  // одиночный поиск номера из СМС 
        {
@@ -848,7 +856,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     if (_response.indexOf(F("OK")) > -1) { // если происходит соединение с MQTT сервером отследить CONNECT OK
       comand_OK = true;
       String SMSResp_Mess;
-     if (SMS_currentIndex !=0 && millis() > t_last_command){
+     if (SMS_currentIndex !=0 && millis() > t_last_command && flag_modem_resp == 0){
         #ifndef NOSERIAL        
           Serial.println ("Message was sent. OK");
         #endif
@@ -878,18 +886,15 @@ if (SIM800.available())   {                   // Если модем, что-т�
                    #ifndef NOSERIAL     
                      Serial.println("csv text= " + _response);              
                     #endif  
-                   if (app-> writeTXTstring(_response))  // записать строку с номером в текстовый файл
+                   if (app-> writeTXTstring(_response, 1))  // записать строку с номером в текстовый файл
                      { ++count_row;
                        #ifndef NOSERIAL     
                         Serial.println("String append OK");              
                        #endif    
                      }
-                    else
-                     {
-                      #ifndef NOSERIAL     
-                        Serial.println("String append ERROR");              
-                       #endif    
-                    }                                                                                                                             
+                    #ifndef NOSERIAL 
+                    else   Serial.println("String append ERROR");    
+                    #endif                                                                                                                           
                  } 
              } 
           flag_modem_resp=0;                    
@@ -940,7 +945,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         sendSMS(String(SMS_incoming_num), SMSResp_Mess); 
         exist_numer(); // обновить количества использованных и доступных номеров на СИМ           
       }
-     
+      // comand_OK = true;
      }
      if (_response.indexOf(F("ERROR")) > -1) {
       if (SMS_currentIndex != 0){
@@ -1201,7 +1206,13 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
     for (uint8_t j=0; j < DIGIT_IN_PHONENAMBER; ++j)
       {             SMS_text_num[j] = phoneNUM[j] ;   // номер телефона из СМС
        if (j<5 && IsComment) SMS_text_comment[j] = comment[j] ; // комментарий к номеру из СМС      
-      }
+      } 
+ //проверить если номер есть в двоичном массиве номеров
+  if (poisk_num(phoneNUM) > -1) {
+       made_action(num_text_comanda, sms_answer);
+
+   }    
+  else { // если номера нет - поискать в СИМ карте
      SMSResp_Mess = F("+CPBF=\"");
      SMSResp_Mess += phoneNUM;
      SMSResp_Mess += charQuote; 
@@ -1211,8 +1222,10 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
    #endif
     //Найти номер в книге, phonen_index если нет 0 
     app->add_in_queue_comand(30, SMSResp_Mess.c_str(), 2);// установить флаг ослеживания ответа OK для однократного поиска номера "+CPBF:"
-  // ответ будет "+CPBF:"  
+  // ответ будет "+CPBF:"  - если номер найден или только OK если не найден.
   // после поиска номера надо передать номер исполняемой команды и надо / не надо отправлять СМС  
+   }
+
   }
 
 }
@@ -1239,6 +1252,7 @@ void made_action(int _command, int _answer)
             //++app->alloc_num[2];
             app->_CreateFile(3);
             app-> saveFile(F("/PhoneBook.bin"));
+            ReLoadBinMassiv(); // обнулить все номера телефонов в массиве и загрузить из BIN файла все номера 
             temp_respons =  F("New BIN File genereted"); 
       }   
       else if (bin_num_index == -1 && ((app->alloc_num[1] == app->alloc_num[0]) || (total_bin_num == app->alloc_num[2])))
@@ -1259,6 +1273,7 @@ void made_action(int _command, int _answer)
       app->phones_on_sim[bin_num_index] = 0; 
       app->_CreateFile(3);
       app-> saveFile(F("/PhoneBook.bin"));
+      ReLoadBinMassiv(); // обнулить все номера телефонов в массиве и загрузить из BIN файла все номера 
       temp_respons = F("New BIN File genereted");
      }
     else { 
@@ -1415,15 +1430,15 @@ void made_action(int _command, int _answer)
         }    
       }
           temp_respons += String(str_ON);
-   }     
-   else if (_command > 15 && _command < 21) //F("R10")) { // Управлять реле через SMS  
-    { if (app->relayPin[_command-16] != -1) {
+   }   
+   else if (_command > 15 && _command < 21) { //F("R10")) { // Управлять реле через SMS  
+     if (app->relayPin[_command-16] != -1) {
        app->switchRelay(_command-16, false);
        temp_respons = ""; //String(str_relay) + '1' + String(str_OFF);
        }          
    }
-   else if (_command == 21) //F("RA0")) { // Управлять реле через SMS  
-    { temp_respons = String(str_relay);   
+   else if (_command == 21) { // F("RA0")) Управлять реле через SMS  
+     temp_respons = String(str_relay);   
        int8_t h=0;
       for (int8_t i=0; i<maxRelays; ++i){
         if (app->relayPin[i] != -1) {
@@ -1438,6 +1453,15 @@ void made_action(int _command, int _answer)
       }
           temp_respons += String(str_OFF);     
    }  
+   else if (_command == 22) {//"Cnf" Создать с заменой новый файл Nomera2000.txt из имеющегося в памяти массива 2000 номеров  
+         app->_CreateFile(2);
+         for (int v = 0; v < app->alloc_num[2]; ++v) {// перебрать все номера телефонов в массиве
+           //if (app->phones_on_sim[v] == 0) break;
+           app->writeTXTstring(BINnum_to_string(app->phones_on_sim[v]),2);
+           vTaskDelay(25);
+         }
+        temp_respons=F("New file Nomera2000.txt generated.");
+   }
 
   if (_answer == 1)
     sendSMS(String(SMS_incoming_num), temp_respons); 
@@ -1534,7 +1558,8 @@ int16_t poisk_num(const String& txt_num){
             _ret=v;
   }
    #ifndef NOSERIAL 
-    Serial.println("BIN num " + txt_num + " is: " + String(_ret));
+    Serial.print("BIN num "); Serial.print(txt_num); 
+    Serial.print(" is: "); Serial.println(String(_ret));
   #endif    
   return _ret;
 }

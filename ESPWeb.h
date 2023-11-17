@@ -151,7 +151,7 @@ public:
 
   virtual void reboot(); // Перезагрузка модуля
   virtual String _CreateFile(uint8_t command_type); 
-  virtual bool writeTXTstring(const String& file_num_string); // добавить строку в текстовый файл
+  virtual bool writeTXTstring(const String& file_num_string, uint8_t command_type); // добавить строку в указанный 1/2 текстовый файл
   virtual bool saveFile(const String& Fname); //процедура сохранения нового BIN файла с номерами телефонов в SPIFFS 
 
   int64_t phones_on_sim[total_bin_num]; //+ 2000 имеющихся в телефонной книге номеров

@@ -1514,7 +1514,8 @@ String ESPWebBase::_CreateFile(uint8_t command_type) {
   String _resp = "";                            // Переменная для хранения результата
   String file_nume="";
   if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
-  if (command_type == 3) file_nume=F("/PhoneBook.bin"); // создать бинарный файл номеров
+  else if (command_type == 2) file_nume=F("/Nomera2000.txt"); // создать текстовый из массива бинарных номеров  
+  else if (command_type == 3) file_nume=F("/PhoneBook.bin"); // создать бинарный файл номеров
   // if (command_type == 6) { // reset SIM800
   //   uint32_t now = 0;
 
@@ -1527,7 +1528,7 @@ String ESPWebBase::_CreateFile(uint8_t command_type) {
   //    _log->println(F(" reset SIM800"));
   //  }
 
-    if (command_type == 1 || command_type == 3){
+    if (command_type == 1 || command_type == 2 || command_type == 3 ){
              if (SPIFFS.exists(file_nume)) {
                   SPIFFS.remove(file_nume);
                   _log->println(F("File deliting"));  //Serial.println(F("File deliting"));
@@ -1553,9 +1554,11 @@ String ESPWebBase::_CreateFile(uint8_t command_type) {
   return _resp;                                 // ... возвращаем результат. Пусто, если проблема
 }
 
-bool ESPWebBase::writeTXTstring(const String& file_num_string) {
+bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_type) {
   bool _resp=false;
-  String file_nume=F("/PhoneBook.txt");
+  String file_nume; 
+   if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
+  else if (command_type == 2) file_nume=F("/Nomera2000.txt"); // создать текстовый из массива бинарных номеров
   File PhoneFile =  SPIFFS.open(file_nume, FILE_APPEND);
     if (PhoneFile) {
       PhoneFile.println(file_num_string);
