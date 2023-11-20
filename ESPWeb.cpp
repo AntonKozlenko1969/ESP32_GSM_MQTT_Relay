@@ -176,7 +176,7 @@ void ESPWebBase::_loop() { // Изменено
   // если указано работать как стнация, а подключения к сети нет, попробовать подключиться если такая сеть в зоне доступа
   if ((!_apMode) && (WiFi.status() != WL_CONNECTED) && ((WiFi.getMode() == WIFI_STA) || ((int32_t)(millis() - nextTime) >= 0))) {
 
-  int nwifi = WiFi.scanNetworks(false,false,true,75U);
+  int nwifi = WiFi.scanNetworks(false,false,true,100U);
   bool WiFi_found = false;
      if (nwifi > 0) {
         String namewifi = "" ;
@@ -964,7 +964,7 @@ return true;\n\
   //Сканирование WiFi окружения
   page +=F("<select type=\"text\" name=\"");
   page += FPSTR(paramSSID);  page += F("\" >");
-  int nwifi = WiFi.scanNetworks(false,false,true,75U);
+  int nwifi = WiFi.scanNetworks(false,false,true,100U);
      if (nwifi > 0) {
         String namewifi = "" ;
         const String ssidwifi = _ssid.c_str();

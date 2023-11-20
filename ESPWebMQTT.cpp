@@ -422,7 +422,8 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
 
 void ESPWebMQTTBase::GPRS_MQTT_connect (){
   char _inn_comm[max_text_com];
-  int _curr_poz = 0; // текущая позиция в массиве
+  int _curr_poz = 2; // текущая позиция в массиве
+  uint16_t rest_length =0; // общее количество байт в пакете (крме первых двух)
   String topic ;
          topic += charSlash;
          topic += _mqttClient;   
@@ -437,24 +438,37 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   // SIM800.write((byte)0), SIM800.write(strlen(MQTT_user)), SIM800.write(MQTT_user); // MQTT логин
   // SIM800.write((byte)0), SIM800.write(strlen(MQTT_pass)), SIM800.write(MQTT_pass); // MQTT пароль
 
-  _inn_comm[_curr_poz] = 0x10; ++_curr_poz;
-  _inn_comm[_curr_poz] = strlen(MQTT_type)+_mqttClient.length()+_mqttUser.length()+_mqttPassword.length()+topic.length()+strlen(mqttDeviceStatusOff)+16; 
-  ++_curr_poz;
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz;
-  _inn_comm[_curr_poz] =strlen(MQTT_type); ++_curr_poz; 
-  for (int v=0;v<strlen(MQTT_type);++v) {_inn_comm[_curr_poz] = MQTT_type[v]; ++_curr_poz;} // тип протокола
-  _inn_comm[_curr_poz] =0x04; ++_curr_poz; _inn_comm[_curr_poz] =0xEE; ++_curr_poz;
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x3C; ++_curr_poz; // тип версии, флаги сединения и время жизни сессии (2 байта)
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =_mqttClient.length(); ++_curr_poz;
+  _inn_comm[0] = 0x10; //#0 идентификатор пакета на соединение
+  // оставшееся количество байт без логина и пароля пользователя
+  //  пример: _inn_comm[1] = strlen(MQTT_type)+_mqttClient.length()+_mqttUser.length()+_mqttPassword.length()+topic.length()+strlen(mqttDeviceStatusOff)+16;   
+  rest_length = strlen(MQTT_type)+_mqttClient.length()+topic.length()+strlen(mqttDeviceStatusOff)+12; 
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; //#2 старший байт длины названия протокола
+  _inn_comm[_curr_poz] =strlen(MQTT_type); ++_curr_poz; //#3 младший байт длины названия протокола
+  for (int v=0;v<strlen(MQTT_type);++v) {_inn_comm[_curr_poz] = MQTT_type[v]; ++_curr_poz;} //байты типа протокола  
+  _inn_comm[_curr_poz] =0x04; ++_curr_poz; // Protocol Level byte 00000100
+  //Connect Flag bits: 7-User Name Flag, 6-Password Flag, 5-Will Retain, 4-Will QoS, 3-Will QoS, 2-Will Flag, 1-Clean Session, 0-Reserved
+  if (_mqttClient == strEmpty) {
+     _inn_comm[_curr_poz] =0x2E; ++_curr_poz;  //Connect Flag bits без логина и пароля 00101110
+  }   
+  else {
+     _inn_comm[_curr_poz] =0xEE; ++_curr_poz;  //Connect Flag bits с логином и паролем 11101110
+     rest_length += _mqttUser.length()+_mqttPassword.length()+4;
+  }
+  _inn_comm[1] = rest_length;  // оставшееся количество байт без логина и пароля пользователя
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x28; ++_curr_poz; // время жизни сессии (2 байта) 0x28-40sec, 0x3C-60sec
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =_mqttClient.length(); ++_curr_poz; // длина идентификатора (2 байта)
   for (int v=0;v<_mqttClient.length();++v) {_inn_comm[_curr_poz] = _mqttClient[v]; ++_curr_poz;}  // MQTT  идентификатор устройства
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=topic.length(); ++_curr_poz;  // LWT топик 
-  for (int v=0;v<topic.length();++v) {_inn_comm[_curr_poz] = topic[v]; ++_curr_poz;}      
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=strlen(mqttDeviceStatusOff); ++_curr_poz; 
-  for (int v=0;v<strlen(mqttDeviceStatusOff);++v) {_inn_comm[_curr_poz] = mqttDeviceStatusOff[v]; ++_curr_poz;}   // LWT сообщение   
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttUser.length(); ++_curr_poz;
-  for (int v=0;v<_mqttUser.length();++v) {_inn_comm[_curr_poz] = _mqttUser[v]; ++_curr_poz;} // MQTT логин
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttPassword.length(); ++_curr_poz;
-   for (int v=0;v<_mqttPassword.length();++v) {_inn_comm[_curr_poz] = _mqttPassword[v]; ++_curr_poz;} // MQTT пароль
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=topic.length(); ++_curr_poz;  // длина LWT топика (2 байта) 
+  for (int v=0;v<topic.length();++v) {_inn_comm[_curr_poz] = topic[v]; ++_curr_poz;}  // LWT топик    
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=strlen(mqttDeviceStatusOff); ++_curr_poz; // длина LWT сообщения (2 байта) 
+  for (int v=0;v<strlen(mqttDeviceStatusOff);++v) {_inn_comm[_curr_poz] = mqttDeviceStatusOff[v]; ++_curr_poz;}   // LWT сообщение  
+
+  if (_mqttClient != strEmpty) {
+      _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttUser.length(); ++_curr_poz;// длина MQTT логина (2 байта) 
+     for (int v=0;v<_mqttUser.length();++v) {_inn_comm[_curr_poz] = _mqttUser[v]; ++_curr_poz;} // MQTT логин
+     _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttPassword.length(); ++_curr_poz;// длина MQTT пароля (2 байта) 
+     for (int v=0;v<_mqttPassword.length();++v) {_inn_comm[_curr_poz] = _mqttPassword[v]; ++_curr_poz;} // MQTT пароль
+  }
 
   add_in_queue_comand(8, _inn_comm, 8);
 

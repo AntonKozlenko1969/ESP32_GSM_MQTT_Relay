@@ -46,7 +46,7 @@ const int max_text_com = 350;
      char text_com[max_text_com]; // максимальная длина строки команд - 556 символов
    } mod_com;
 
-const char MQTT_type[15] PROGMEM =  "MQIsdp";  // "MQTT";     // тип протокола НЕ ТРОГАТЬ !
+const char MQTT_type[15] PROGMEM = "MQTT";  //"MQIsdp";   // тип протокола НЕ ТРОГАТЬ !
 
 class ESPWebMQTTBase : public ESPWebBase { // Расширение базового класса с поддержкой MQTT
 public:

@@ -172,7 +172,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       goto sendATCommand;
       break;
     case 1:
-      _comm=F("+CIURC=1"); _povtor = 2;// включить отображение состояния
+      _comm=F("+CFUN=1,1"); _povtor = 2; //Reset the MT before setting it to <fun> power level.    
       goto sendATCommand;
       break;  
     case 2:
@@ -180,12 +180,12 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       goto sendATCommand;
       break;   
     case 3:
-      _comm=F("+CFUN=1,1"); _povtor = 2; //Reset the MT before setting it to <fun> power level.
+      _comm=F("+CIURC=1"); _povtor = 2;// включить отображение состояния
       goto sendATCommand;
       break;  
     case 4:
       _comm=F("+CFUN=1"); _povtor = 2;  // Full functionality (Default)
-      //_interval = 15; // ожидает готовность сети интервал в секундах ожидания ответа от модема      
+      //_interval = 25; // ожидает готовность сети интервал в секундах ожидания ответа от модема      
       goto sendATCommand;
       break;   
     case 5:
@@ -207,6 +207,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       break;   
     case 9: 
       _comm=F("+CLIP=1;+CCALR?"); _povtor = 2;// Включаем АОН 
+      _interval = 20; // интервал в секундах ожидания ответа от модема
       goto sendATCommand;
       break;    
        // AT+CLTS=0 Отключить вывод текущей временной зоны при каждом входящем звонке
@@ -643,23 +644,20 @@ if (millis() > 60*60*1000*30)   ESP.restart();
    }
 
 if (SIM800.available())   {                   // Если модем, что-то отправил...
-  // if (modem_ISactiv) // определить стартовую последовательность, после которой можно работать с модемом
-     _response = SIM800.readStringUntil('\n');             // Получаем ответ от модема для анализа
-  //  else { 
-  //     bool Start_mess = true; 
-  //     int8_t f = 0; // номер входящего байта
-  //     char in_char;
-  //       while (SIM800.available()){
-  //           in_char= SIM800.read();
-  //           if (start_SIM800_mess[f] != in_char) Start_mess = false;
-  //           ++f;
-  //           if (f == 8) break;
-  //       }
-  //       modem_ISactiv = Start_mess;
-  //    }  
-    //_response = SIM800.readString();             // Получаем ответ от модема для анализа    
-    _response.trim();
-    if (_response == "") _response = SIM800.readStringUntil('\n');
+    // _response = SIM800.readStringUntil('\n');             // Получаем ответ от модема для анализа
+    // _response.trim();
+    // if (_response == strEmpty) _response = SIM800.readStringUntil('\n');
+   // _response = SIM800.readString();
+       char inchar; int8_t inn_r=0; int8_t inn_n=0; uint inn_simv=0;
+    _response=strEmpty;
+    while (SIM800.available()){
+        inchar = SIM800.read();
+        if (inchar == '\r') {++inn_r; ++inn_simv;}
+        else if (inchar == '\n') { ++inn_n; ++inn_simv;
+           if (inn_simv > 1 && inn_n == 1 && inn_r == 1) break;
+          }
+        else { _response += inchar; ++inn_simv;}
+    }
       #ifndef NOSERIAL      
         Serial.println("          " + _response);                  // Если нужно выводим в монитор порта  
       #endif 
@@ -781,14 +779,14 @@ if (SIM800.available())   {                   // Если модем, что-т�
            #ifndef NOSERIAL     
              Serial.print("File String +CPBF: index= "); Serial.print(phonen_index); 
              Serial.print(" ; number= "); Serial.print(textnumber);                          
-             Serial.println(" ; comment= "); Serial.print(textnumbercomment); 
-             Serial.print("flag_modem_resp = "); Serial.println(String(flag_modem_resp));              
+             Serial.print(" ; comment= "); Serial.print(textnumbercomment); 
+             Serial.print(" flag_modem_resp = "); Serial.println(flag_modem_resp);              
            #endif 
       if (flag_modem_resp == 2)  // одиночный поиск номера из СМС 
        {
         SMS_phoneBookIndex = phonen_index.toInt();
            #ifndef NOSERIAL   
-             Serial.println("+CPBF: INT index=" + String(SMS_phoneBookIndex));              
+             Serial.print("+CPBF: INT index= "); Serial.println(SMS_phoneBookIndex);              
            #endif            
        // t_last_command = millis();  
        }
@@ -917,18 +915,24 @@ if (SIM800.available())   {                   // Если модем, что-т�
          exist_numer(); // обновить количества использованных и доступных номеров на СИМ
          if (SMS_phoneBookIndex==0) { //Добавить новый номер
           SMSResp_Mess  =F("Phone-");
-          SMSResp_Mess += String(SMS_text_num);
+          SMSResp_Mess.reserve(SMSResp_Mess.length() + DIGIT_IN_PHONENAMBER + 1);
+          {String temp1 = String(SMS_text_num);
+          SMSResp_Mess += temp1;}
           SMSResp_Mess += F(" was successfully INCLUDED in White List!");
            }
          else if (SMS_phoneBookIndex > 0) { // перезаписать существующий номер   
           SMSResp_Mess  =F("Phone-");
-          SMSResp_Mess +=String(SMS_text_num); 
+          SMSResp_Mess.reserve(SMSResp_Mess.length() + DIGIT_IN_PHONENAMBER + 1);
+          {String temp1 = String(SMS_text_num);
+          SMSResp_Mess += temp1;}
           SMSResp_Mess += F(" already exist in White List! "); 
-          SMSResp_Mess += charCR + charLF;
+         //SMSResp_Mess += charCR + charLF;
           SMSResp_Mess +=F("Index -"); 
-          SMSResp_Mess +=String(SMS_phoneBookIndex); 
-          SMSResp_Mess += charCR + charLF;; 
-          SMSResp_Mess +=F("Editing OK");
+          SMSResp_Mess.reserve(SMSResp_Mess.length() + 5);
+          {String temp1 = String(SMS_phoneBookIndex);
+          SMSResp_Mess += temp1;}
+          //SMSResp_Mess += charCR + charLF;; 
+          SMSResp_Mess +=F(" Editing OK");
          }
         flag_modem_resp=0;
         sendSMS(String(SMS_incoming_num), SMSResp_Mess);    // отправить СМС с ответом
@@ -936,7 +940,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
       else if (flag_modem_resp==4 && millis() > t_last_command) // завершено одиночное удаление номера из СМС - отправить ответ
       { //String SMSResp_Mess;
         SMSResp_Mess  =F("Phone-");
-        SMSResp_Mess += String(SMS_text_num);
+        SMSResp_Mess.reserve(SMSResp_Mess.length() + DIGIT_IN_PHONENAMBER + 1);
+         {String temp1 = String(SMS_text_num);
+        SMSResp_Mess += temp1;}
        if (SMS_phoneBookIndex > 0)
          SMSResp_Mess += F(" was successfully REMOVED in White List!");
        else
@@ -971,13 +977,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     //*************************************************
     // Обработка MQTT
     if (app->TCP_ready){
-        // #ifndef NOSERIAL
-        //   for (int h=0; h<_response.length();++h){
-        //   Serial.print(_response[h], HEX); Serial.print(" ");
-        //   }
-        //   Serial.println("");
-        // #endif              
-      if (_response[0] == 0x30)  { app->MQTT_connect = true;  // пришел ответ на публикацию в подписанном топике
+      if (_response[0] == 0x30)  { app->MQTT_connect = true; print_MQTTrespons_to_serial(_response); // пришел ответ на публикацию в подписанном топике
          String s1 = "/";  // добавить слэш / для совпадения имен топиков
             s1 += _response.substring(4 , 4 + _response[3]);
         //  #ifndef NOSERIAL  
@@ -994,9 +994,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
         //  #endif 
          app->mqttCallback(_topik_path, _payload, 1);
         }
-      else if (_response[0] == 0x02 || _response[0] == 0x90) {app->MQTT_connect = true;}// пришло сообщение о подключении или удачной подписке на топик
+      else if (_response[0] == 0x20 || _response[0] == 0x90) {app->MQTT_connect = true; print_MQTTrespons_to_serial(_response);}// пришло сообщение о подключении или удачной подписке на топик
       else if (_response.indexOf(F("CLOSED")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}
-      else if (_response[0] == 0xD0) {app->MQTT_connect = true;} // подтверждения ping от MQTT сервера
+      else if (_response[0] == 0xD0) {app->MQTT_connect = true; print_MQTTrespons_to_serial(_response);} // подтверждения ping от MQTT сервера
      }  
   }
 
@@ -1013,6 +1013,15 @@ if (SIM800.available())   {                   // Если модем, что-т�
         app->add_in_queue_comand(30, temp2.c_str(), 0);  //ОТправить входящую СМС на считывание содержания и обработку
      }   
   }
+}
+
+void print_MQTTrespons_to_serial(const String& _resp){
+        #ifndef NOSERIAL
+          for (int h=0; h<_response.length();++h){
+          Serial.print(_response[h], HEX); Serial.print(" ");
+          }
+          Serial.println("");
+        #endif  
 }
 
 void parseSMS(const String& msg) {                                   // Парсим SMS
@@ -1210,7 +1219,6 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
  //проверить если номер есть в двоичном массиве номеров
   if (poisk_num(phoneNUM) > -1) {
        made_action(num_text_comanda, sms_answer);
-
    }    
   else { // если номера нет - поискать в СИМ карте
      SMSResp_Mess = F("+CPBF=\"");
