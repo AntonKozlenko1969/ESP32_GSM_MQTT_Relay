@@ -425,9 +425,16 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   int _curr_poz = 2; // текущая позиция в массиве
   uint16_t rest_length =0; // общее количество байт в пакете (крме первых двух)
   String topic ;
-         topic += charSlash;
+         //topic += charSlash;
          topic += _mqttClient;   
          topic += mqttDeviceStatusTopic;         
+
+    //  #ifndef NOSERIAL  
+    //     Serial.print("connect topic / mess ");     
+    //     Serial.print(topic); 
+    //     Serial.print(" / ");         
+    //     Serial.println(String(mqttDeviceStatusOff));         
+    //   #endif 
 
   _inn_comm[0] = 0x10; //#0 идентификатор пакета на соединение
   // оставшееся количество байт без логина и пароля пользователя
