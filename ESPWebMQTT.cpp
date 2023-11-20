@@ -399,7 +399,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       }
    if (reconnect_step > 1) {
       if (MQTT_connect) {
-        if (reconnect_step < 15) {
+        if (reconnect_step < 7) {
            String topic ;
            topic += charSlash;
            topic += _mqttClient;   
@@ -408,12 +408,12 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
            mqttResubscribe(); 
           }
          GPRS_MQTT_ping(); //только поддержать соединение          
-         reconnect_step = 15; timeout = 30000;
+         reconnect_step = 7; timeout = 30000;
        }
       else { ++reconnect_step; }  
      }
 
-    if (reconnect_step > 20) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 20 * timeout
+    if (reconnect_step > 9) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 20 * timeout
 
    nextTime = millis() + timeout;  
   }
@@ -428,15 +428,6 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
          topic += charSlash;
          topic += _mqttClient;   
          topic += mqttDeviceStatusTopic;         
-  // SIM800.write(0x10);                                                              // маркер пакета на установку соединения
-  // SIM800.write(strlen(MQTT_type)+app->_mqttClient.length()+strlen(MQTT_user)+strlen(MQTT_pass)+strlen("ESP_Relay/Status")+strlen("offline")+16); 
-  // SIM800.write((byte)0),SIM800.write(strlen(MQTT_type)),SIM800.write(MQTT_type);   // тип протокола
-  // SIM800.write(0x04), SIM800.write(0xEE),SIM800.write((byte)0),SIM800.write(0x3C); // тип версии, флаги сединения и время жизни сессии (2 байта)
-  // SIM800.write((byte)0), SIM800.write(app->_mqttClient.length()),  SIM800.write(app->_mqttClient.c_str());  // MQTT  идентификатор устройства
-  // SIM800.write((byte)0), SIM800.write(strlen("ESP_Relay/Status")), SIM800.write("ESP_Relay/Status");  // LWT топик 
-  // SIM800.write((byte)0), SIM800.write(strlen("offline")), SIM800.write("offline");  // LWT сообщение   
-  // SIM800.write((byte)0), SIM800.write(strlen(MQTT_user)), SIM800.write(MQTT_user); // MQTT логин
-  // SIM800.write((byte)0), SIM800.write(strlen(MQTT_pass)), SIM800.write(MQTT_pass); // MQTT пароль
 
   _inn_comm[0] = 0x10; //#0 идентификатор пакета на соединение
   // оставшееся количество байт без логина и пароля пользователя
@@ -448,14 +439,14 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   _inn_comm[_curr_poz] =0x04; ++_curr_poz; // Protocol Level byte 00000100
   //Connect Flag bits: 7-User Name Flag, 6-Password Flag, 5-Will Retain, 4-Will QoS, 3-Will QoS, 2-Will Flag, 1-Clean Session, 0-Reserved
   if (_mqttClient == strEmpty) {
-     _inn_comm[_curr_poz] =0x2E; ++_curr_poz;  //Connect Flag bits без логина и пароля 00101110
+     _inn_comm[_curr_poz] =0x2E; ++_curr_poz;  //Connect Flag bits без логина и пароля 0x2E 00101110, 0x2C 00101100
   }   
   else {
-     _inn_comm[_curr_poz] =0xEE; ++_curr_poz;  //Connect Flag bits с логином и паролем 11101110
+     _inn_comm[_curr_poz] =0xEE; ++_curr_poz;  //Connect Flag bits с логином и паролем 0xEE 11101110, 0xEC 11101100
      rest_length += _mqttUser.length()+_mqttPassword.length()+4;
   }
   _inn_comm[1] = rest_length;  // оставшееся количество байт без логина и пароля пользователя
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x28; ++_curr_poz; // время жизни сессии (2 байта) 0x28-40sec, 0x3C-60sec
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x23; ++_curr_poz; // время жизни сессии (2 байта) 0x23-35sec, 0x28-40sec, 0x3C-60sec
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =_mqttClient.length(); ++_curr_poz; // длина идентификатора (2 байта)
   for (int v=0;v<_mqttClient.length();++v) {_inn_comm[_curr_poz] = _mqttClient[v]; ++_curr_poz;}  // MQTT  идентификатор устройства
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=topic.length(); ++_curr_poz;  // длина LWT топика (2 байта) 
@@ -471,45 +462,24 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   }
 
   add_in_queue_comand(8, _inn_comm, 8);
-
-          // topic += charSlash;
-          // topic += _mqttClient;
-          // topic += mqttDeviceStatusTopic;  
-          
-  //  mqttPublish(topic, mqttDeviceStatusOn); 
-  //  mqttResubscribe();
-    // topic = charSlash;
-    // topic += _mqttClient;
-    // topic += F("/#");
-    // GPRS_MQTT_sub(topic); 
-
-  // //******************************** end connect *********************************
-  //  GPRS_MQTT_pub ("/ESP_Relay/Relay/Confirm/1", "0"); 
-  //  GPRS_MQTT_pub ("/ESP_Relay/Relay/Confirm/5", "0"); 
-  //GPRS_MQTT_sub ("ESP_Relay/Relay/Config/1");   
-  //GPRS_MQTT_sub ("ESP_Relay/Relay/Config/5");  
-  //SIM800.write(0x1A);          // маркер завершения пакета добавиться при отправке
-
 }
 
  void ESPWebMQTTBase::GPRS_MQTT_pub (const String& _topic, const String& _messege) {          // пакет на публикацию
   char _inn_comm[max_text_com];
   int _curr_poz = 4; // текущая позиция в массиве
 
-      //    #ifndef NOSERIAL  
-      //   Serial.print("pub topic / mess ");     
-      //   Serial.print(_topic); 
-      //   Serial.print(" / ");         
-      //   Serial.println(_messege);         
-      // #endif 
-   // Убирать начальный слэш / в названии топика
-  // SIM800.write(0x31), SIM800.write(strlen(_topic)+strlen(MQTT_messege)+2); // было 0x30 без retain 0x31 с retain
-  // SIM800.write((byte)0), SIM800.write(strlen(_topic)), SIM800.write(MQTT_topic); // топик
-  // SIM800.write(MQTT_messege);    // сообщение
-    _inn_comm[0]=0x31; _inn_comm[1]=_topic.length()-1+_messege.length()+2; 
+    //  #ifndef NOSERIAL  
+    //     Serial.print("pub topic / mess ");     
+    //     Serial.print(_topic); 
+    //     Serial.print(" / ");         
+    //     Serial.println(_messege);         
+    //   #endif 
+
+    _inn_comm[0]=0x31; // было 0x30 без retain Qos0, 0x31 с retain Qos0, 0x33 Qos1 (не работает??)
+    _inn_comm[1]=_topic.length()-1+_messege.length()+2; 
     _inn_comm[2]=0x00; _inn_comm[3]=_topic.length()-1;
-    for (int8_t v=1; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}
-    for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}    
+    for (int8_t v=1; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
+    for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}   // сообщение  
     add_in_queue_comand(8, _inn_comm, 8);
   }                                                 
 
@@ -526,14 +496,11 @@ void ESPWebMQTTBase::GPRS_MQTT_ping () {                                // па�
       //   Serial.print("sub topic ");     
       //   Serial.println(_topic); 
       // #endif    
-  // SIM800.write(0x82), SIM800.write(strlen(MQTT_topic)+5);                          // сумма пакета 
-  // SIM800.write((byte)0), SIM800.write(0x01), SIM800.write((byte)0);                // просто так нужно
-  // SIM800.write(strlen(MQTT_topic)), SIM800.write(MQTT_topic);                      // топик
-  // SIM800.write((byte)0); 
-   // Убирать начальный слэш / в названии топика
-  _inn_comm[0]=0x82; _inn_comm[1]=_topic.length()-1+5;  
+
+  _inn_comm[0]=0x82; 
+  _inn_comm[1]=_topic.length()-1+5;   // сумма пакета 
   _inn_comm[2]=0x00; _inn_comm[3]=0x01; _inn_comm[4]=0x00;
-  _inn_comm[5]=_topic.length()-1;
+  _inn_comm[5]=_topic.length()-1;  // топик
     for (int8_t v=1; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}  
   _inn_comm[_curr_poz]=0x00;   
 
