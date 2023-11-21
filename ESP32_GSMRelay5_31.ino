@@ -2659,8 +2659,9 @@ void ESPWebMQTTRelay::mqttCallback(char* topic, byte* payload, unsigned int leng
   _mqttTopic +=FPSTR(mqttRelayConfigTopic);
   #endif
   //***********
-  char* topicBody = topic + _mqttClient.length() + 1; // Skip "/ClientName" from topic
-  if (! strncmp(topicBody, _mqttTopic.c_str(), _mqttTopic.length())) {
+  char* topicBody = topic + _mqttClient.length();// + 1; // Skip "/ClientName" from topic
+  //strncmp(str1, str2, num) Сравнивает первые num символов из строк str1 и str2. Возвращает 0, если эти участки одинаковы.
+  if (! strncmp(topicBody, _mqttTopic.c_str(), _mqttTopic.length())) { 
     topicBody += _mqttTopic.length();
     if (*topicBody++ == charSlash) {
       int8_t id = 0;
@@ -2699,9 +2700,9 @@ void ESPWebMQTTRelay::mqttCallback(char* topic, byte* payload, unsigned int leng
 
 void ESPWebMQTTRelay::mqttResubscribe() {
   String topic;
-
+ 
   if (_mqttClient != strEmpty) {
-    topic += charSlash;
+    //topic += charSlash; // 21/11/2023
     topic += _mqttClient;
   }
 
@@ -2722,8 +2723,8 @@ void ESPWebMQTTRelay::mqttResubscribe() {
 //***********************
 #ifdef CONFIRM_CONFIG_TOPIC
 if (_mqttClient != strEmpty) {
-    topic = charSlash;
-    topic += _mqttClient;
+   // topic = charSlash; // 21/11/2023
+    topic = _mqttClient;
   }
   topic += FPSTR(mqttRelayTopic);
   topic += FPSTR(mqttRelayConfigTopic);
@@ -2756,7 +2757,7 @@ void ESPWebMQTTRelay::switchRelay(int8_t id, bool on) {
       String topic;
 
       if (_mqttClient != strEmpty) {
-        topic += charSlash;
+        //topic += charSlash;// 21/11/2023
         topic += _mqttClient;
       }
       topic += FPSTR(mqttRelayTopic);
@@ -2914,7 +2915,7 @@ void ESPWebMQTTRelay::publishTemperature() {
     String topic;
 
     if (_mqttClient != strEmpty) {
-      topic += charSlash;
+     // topic += charSlash; // 21/11/2023
       topic += _mqttClient;
     }
     topic += FPSTR(mqttTemperatureTopic);
@@ -2927,7 +2928,7 @@ void ESPWebMQTTRelay::publishHumidity() {
     String topic;
 
     if (_mqttClient != strEmpty) {
-      topic += charSlash;
+      //topic += charSlash; // 21/11/2023
       topic += _mqttClient;
     }
     topic += FPSTR(mqttHumidityTopic);
@@ -2942,7 +2943,7 @@ void ESPWebMQTTRelay::publishTemperature2() {
     String topic;
 
     if (_mqttClient != strEmpty) {
-      topic += charSlash;
+      //topic += charSlash; // 21/11/2023
       topic += _mqttClient;
     }
     topic += FPSTR(mqttTemperatureTopic2);
@@ -2957,7 +2958,7 @@ void ESPWebMQTTRelay::publishLDR() {
     String topic;
 
     if (_mqttClient != strEmpty) {
-      topic += charSlash;
+      //topic += charSlash; // 21/11/2023
       topic += _mqttClient;
     }
     topic += FPSTR(mqttLDRTopic);

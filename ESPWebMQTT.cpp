@@ -243,7 +243,7 @@ bool ESPWebMQTTBase::mqttReconnect() {
     // **** добавлено для LWT  
      String topic;
        if (_mqttClient != strEmpty) {
-          topic += charSlash;
+          //topic += charSlash;// 21/11/2023
           topic += _mqttClient;
       }   
           topic += mqttDeviceStatusTopic;     
@@ -265,7 +265,12 @@ bool ESPWebMQTTBase::mqttReconnect() {
      // **** добавлено для LWT     
      // vTaskDelay(1200);
       mqttPublish(topic, mqttDeviceStatusOn);  // добавлено для LWT 
-      String IP_Topic = charSlash + _mqttClient + "/LocalIP";
+      String IP_Topic; 
+      if (_mqttClient != strEmpty) {
+         //IP_Topic +=charSlash; // 21/11/2023
+         IP_Topic +=_mqttClient;   
+        }
+       IP_Topic +=F("/LocalIP");  
       String String_IP = IPAddress2String(WiFi.localIP());
       mqttPublish(IP_Topic, String_IP);  // добавлено для отображения на MQTT локально IP адреса       
      // ******
@@ -304,7 +309,7 @@ void ESPWebMQTTBase::mqttResubscribe() {
   String topic;
 
   if (_mqttClient != strEmpty) {
-    topic += charSlash;
+    //topic += charSlash; // 21/11/2023
     topic += _mqttClient;
     topic += F("/#");
     mqttSubscribe(topic);
@@ -401,7 +406,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       if (MQTT_connect) {
         if (reconnect_step < 7) {
            String topic ;
-           topic += charSlash;
+           //topic += charSlash;// 21/11/2023
            topic += _mqttClient;   
            topic += mqttDeviceStatusTopic;    
            mqttPublish(topic, mqttDeviceStatusOn);             
@@ -483,9 +488,9 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
     //   #endif 
 
     _inn_comm[0]=0x31; // было 0x30 без retain Qos0, 0x31 с retain Qos0, 0x33 Qos1 (не работает??)
-    _inn_comm[1]=_topic.length()-1+_messege.length()+2; 
-    _inn_comm[2]=0x00; _inn_comm[3]=_topic.length()-1;
-    for (int8_t v=1; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
+    _inn_comm[1]=_topic.length()+_messege.length()+2; 
+    _inn_comm[2]=0x00; _inn_comm[3]=_topic.length();
+    for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
     for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}   // сообщение  
     add_in_queue_comand(8, _inn_comm, 8);
   }                                                 
@@ -505,10 +510,10 @@ void ESPWebMQTTBase::GPRS_MQTT_ping () {                                // па�
       // #endif    
 
   _inn_comm[0]=0x82; 
-  _inn_comm[1]=_topic.length()-1+5;   // сумма пакета 
+  _inn_comm[1]=_topic.length()+5;   // сумма пакета 
   _inn_comm[2]=0x00; _inn_comm[3]=0x01; _inn_comm[4]=0x00;
-  _inn_comm[5]=_topic.length()-1;  // топик
-    for (int8_t v=1; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}  
+  _inn_comm[5]=_topic.length();  // топик
+    for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}  
   _inn_comm[_curr_poz]=0x00;   
 
   add_in_queue_comand(8, _inn_comm, 8);

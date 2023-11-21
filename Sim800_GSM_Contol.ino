@@ -977,26 +977,20 @@ if (SIM800.available())   {                   // Если модем, что-т�
     //*************************************************
     // Обработка MQTT
     if (app->TCP_ready){
-      if (_response[0] == 0x30)  { app->MQTT_connect = true; print_MQTTrespons_to_serial(_response); // пришел ответ на публикацию в подписанном топике
-         String s1 = "/";  // добавить слэш / для совпадения имен топиков
-            s1 += _response.substring(4 , 4 + _response[3]);
-        //  #ifndef NOSERIAL  
-        //     Serial.println(s1);
-        //  #endif                  
+      if (_response[0] == 0x30)  { app->MQTT_connect = true; //print_MQTTrespons_to_serial(_response); // пришел ответ на публикацию в подписанном топике
+         String s1; 
+            s1 += _response.substring(4 , 4 + _response[3]);                 
         char _topik_path[s1.length()+1];
         for (int k=0; k < s1.length()+1; ++k) _topik_path[k]=s1[k];
          s1 = _response.substring(4 + _response[3]);
         byte* _payload;
         byte sb1 = (byte)s1[0];
         _payload = &sb1;
-        //  #ifndef NOSERIAL  
-        //    Serial.print('['); Serial.print(_topik_path); Serial.print(']'); Serial.println(s1);
-        //  #endif 
          app->mqttCallback(_topik_path, _payload, 1);
         }
-      else if (_response[0] == 0x20 || _response[0] == 0x90) {app->MQTT_connect = true; print_MQTTrespons_to_serial(_response);}// пришло сообщение о подключении или удачной подписке на топик
+      else if (_response[0] == 0x20 || _response[0] == 0x90) {app->MQTT_connect = true; } //print_MQTTrespons_to_serial(_response);}// пришло сообщение о подключении или удачной подписке на топик
       else if (_response.indexOf(F("CLOSED")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}
-      else if (_response[0] == 0xD0) {app->MQTT_connect = true; print_MQTTrespons_to_serial(_response);} // подтверждения ping от MQTT сервера
+      else if (_response[0] == 0xD0) {app->MQTT_connect = true; } //print_MQTTrespons_to_serial(_response);} // подтверждения ping от MQTT сервера
      }  
   }
 
