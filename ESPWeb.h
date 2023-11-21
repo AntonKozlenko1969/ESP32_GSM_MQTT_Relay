@@ -138,6 +138,7 @@ const char paramNtpTimeZone[] PROGMEM = "ntptimezone";
 const char paramNtpUpdateInterval[] PROGMEM = "ntpupdateinterval";
 const char paramTime[] PROGMEM = "time";
 const char paramReboot[] PROGMEM = "reboot";
+const char paramGSMMode[] PROGMEM = "gsmmode"; 
 
 const char paramWhiteList[] PROGMEM = "whiteList"; // Параметр белых номеров 
 const int total_bin_num = 2000; //2000 имеющихся в SPIFFS телефонной книге номеров
@@ -172,7 +173,7 @@ public:
   uint8_t indexOnSim[250]; // индекс номера на СИМ карте, если 0 - записать в любой свободный индекс (только для записи на сим)
   int16_t alloc_num[3]={0,0,0}; //Количество имеющихся в телефонной книге номеров и общее возможное количество номеров
   // а также число сохраненных бинарных номеров из BIN файла
-
+  bool _gsmMode; // использовать GSM модем или нет
   String _whiteListPhones; // Белый список телефонов максимум 3 номера по 8 симолов
   
 protected:

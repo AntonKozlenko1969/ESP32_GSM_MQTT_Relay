@@ -25,7 +25,7 @@ void ESPWebMQTTBase::loopExtra() {
     if (pubSubClient->connected())
       pubSubClient->loop(); // НЕ Изменено
   }
-  if (_mqttServer != strEmpty && WiFi.getMode() != WIFI_STA && modemOK && !IsOpros && !SIM_fatal_error) {
+  if (_gsmMode && _mqttServer != strEmpty && WiFi.getMode() != WIFI_STA && modemOK && !IsOpros && !SIM_fatal_error) {
       GPRS_MQTT_Reconnect();
    } 
 }
@@ -336,7 +336,7 @@ bool ESPWebMQTTBase::mqttPublish(const String& topic, const String& value) {
   _log->println('\"');
   if (pubSubClient->connected())
     return pubSubClient->publish(topic.c_str(), value.c_str(), mqttDeviceStatusRetained);
-  if (MQTT_connect) {
+  if (_gsmMode && MQTT_connect) {
      GPRS_MQTT_pub(topic, value); 
     return true;
   }

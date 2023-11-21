@@ -362,6 +362,8 @@ uint16_t ESPWebBase::readConfig() {
   }
   getEEPROM(offset, _apMode);
   offset += sizeof(_apMode);
+  getEEPROM(offset, _gsmMode);
+  offset += sizeof(_gsmMode);  
   offset = readEEPROMString(offset, _ssid, maxStringLen);
   offset = readEEPROMString(offset, _password, maxStringLen);
   offset = readEEPROMString(offset, _domain, maxStringLen);
@@ -397,6 +399,8 @@ uint16_t ESPWebBase::writeConfig(bool commit) {
   }
   putEEPROM(offset, _apMode);
   offset += sizeof(_apMode);
+  putEEPROM(offset, _gsmMode);
+  offset += sizeof(_gsmMode);  
   offset = writeEEPROMString(offset, _ssid, maxStringLen);
   offset = writeEEPROMString(offset, _password, maxStringLen);
   offset = writeEEPROMString(offset, _domain, maxStringLen);
@@ -423,6 +427,7 @@ inline void ESPWebBase::commitConfig() {
 void ESPWebBase::defaultConfig(uint8_t level) {
   if (level < 1) {
     _apMode = true;
+    _gsmMode = false;
     _ssid = FPSTR(defSSID);
     _ssid += getBoardId();
     _password = FPSTR(defPassword);
@@ -439,6 +444,8 @@ void ESPWebBase::defaultConfig(uint8_t level) {
 bool ESPWebBase::setConfigParam(const String& name, const String& value) {
   if (name.equals(FPSTR(paramApMode)))
     _apMode = constrain(value.toInt(), 0, 1);
+  else if (name.equals(FPSTR(paramGSMMode)))
+    _gsmMode = constrain(value.toInt(), 0, 1);    
   else if (name.equals(FPSTR(paramSSID)))
     _ssid = value;
   else if (name.equals(FPSTR(paramPassword)))
@@ -1019,14 +1026,29 @@ return true;\n\
   page += F("\n\
 .local (leave blank to ignore mDNS)\n\
 <p>\n");
+//*****  Добавлено для выбора подключен GSM модем или нет
+  page += F("<label>USE GSM/GPRS Modem:</label><br/>\n");
+  if (_gsmMode)
+    page += ESPWebBase::tagInput(FPSTR(typeRadio), FPSTR(paramGSMMode), "1", FPSTR(extraChecked));
+  else
+    page += ESPWebBase::tagInput(FPSTR(typeRadio), FPSTR(paramGSMMode), "1");
+  page += F("GSM modem connected\n");
+  if (! _gsmMode)
+    page += ESPWebBase::tagInput(FPSTR(typeRadio), FPSTR(paramGSMMode), "0", FPSTR(extraChecked));
+  else
+    page += ESPWebBase::tagInput(FPSTR(typeRadio), FPSTR(paramGSMMode), "0");
+  page += F("NOT use GSM/GPRS modem\n<br/><p>\n");
 
+ if (_gsmMode){
 // Добавлено для сохранения 3-х белых номеров по 8 симолов
+  page += F("<label>If use Lilygo T-CALL board NOT use GPIO 5 and GPIO 23 for Relay !</label><br/><p>\n");
   page += F("\n\
 <label>White Phones List (max 3 numbers per ");
   page += DIGIT_IN_PHONENAMBER;
   page += F(" simbols) 123456789,123456789,123456789 :</label><br/>\n");
   page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramWhiteList), _whiteListPhones, String(F("maxlength=")) + String(maxStringLen));
   page += F("\n*<p>\n");
+ }  
   page += ESPWebBase::tagInput(FPSTR(typeSubmit), strEmpty, F("Save"));
   page += charLF;
   page += btnBack();
