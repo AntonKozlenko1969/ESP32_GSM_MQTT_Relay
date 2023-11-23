@@ -1046,7 +1046,7 @@ return true;\n\
 <label>White Phones List (max 3 numbers per ");
   page += DIGIT_IN_PHONENAMBER;
   page += F(" simbols) 123456789,123456789,123456789 :</label><br/>\n");
-  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramWhiteList), _whiteListPhones, String(F("maxlength=")) + String(maxStringLen));
+  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramWhiteList), _whiteListPhones, String(F("maxlength=")) + String(2+DIGIT_IN_PHONENAMBER*3) + String(F(" size=")) + String(2+DIGIT_IN_PHONENAMBER*3));
   page += F("\n*<p>\n");
  }  
   page += ESPWebBase::tagInput(FPSTR(typeSubmit), strEmpty, F("Save"));

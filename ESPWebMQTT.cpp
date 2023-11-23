@@ -382,16 +382,19 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint32_t timeout; //  = 30000;
   static uint32_t nextTime;
   //bool result = false;
-  
+  static uint8_t connect_attempt;
   static uint8_t reconnect_step;
   
    if ((int32_t)(millis() - nextTime) >= 0) {
        
       //   #ifndef NOSERIAL  
-      //    Serial.print("reconnect_step ");  
-      //    Serial.print(reconnect_step);   
-      //    Serial.print(" TCP_ready ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
-      //    Serial.print(" MQTT_connect ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
+      //    Serial.print("reconnect_step = ");  
+      //    Serial.print(reconnect_step);
+      //    Serial.print(" connect_attempt = ");  
+      //    Serial.print(connect_attempt);    
+      //    Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
+      //    Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
+      //    Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
       //  #endif 
 
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
@@ -400,10 +403,11 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       }
    if (GPRS_ready && reconnect_step == 0) ++reconnect_step; 
    if(!TCP_ready && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
-         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; return; // Не подавать следующую команду пока не подключимся
+         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; ++connect_attempt; return; // Не подавать следующую команду пока не подключимся
       }
    if (reconnect_step > 1) {
       if (MQTT_connect) {
+        connect_attempt=0;
         if (reconnect_step < 7) {
            String topic ;
            //topic += charSlash;// 21/11/2023
@@ -418,7 +422,12 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
       else { ++reconnect_step; }  
      }
 
+    // если подключились к MQTT серверу, но сервер скинул подключение (не верный пользователь или пароль)
     if (reconnect_step > 9) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 20 * timeout
+    // если пытаемся подключиться, но сервер вообще не отвечает (сервер не доступен, не верный адрес, URL)
+    if (connect_attempt == 10) timeout = 3*60*1000; // пробовать через 3 минуты
+    if (connect_attempt == 30) timeout = 7*60*1000; // пробовать через 3 минуты
+    if (connect_attempt == 50) {timeout = 30*1000; connect_attempt=0;} // начать попытки заново
 
    nextTime = millis() + timeout;  
   }
