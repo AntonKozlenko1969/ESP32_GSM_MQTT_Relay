@@ -270,7 +270,7 @@ bool ESPWebMQTTBase::mqttReconnect() {
          //IP_Topic +=charSlash; // 21/11/2023
          IP_Topic +=_mqttClient;   
         }
-       IP_Topic +=F("/LocalIP");  
+       IP_Topic +=FPSTR(mqttDeviceIPTopic);  
       String String_IP = IPAddress2String(WiFi.localIP());
       mqttPublish(IP_Topic, String_IP);  // добавлено для отображения на MQTT локально IP адреса       
      // ******
@@ -387,20 +387,21 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   
    if ((int32_t)(millis() - nextTime) >= 0) {
        
-      //   #ifndef NOSERIAL  
-      //    Serial.print("reconnect_step = ");  
-      //    Serial.print(reconnect_step);
-      //    Serial.print(" connect_attempt = ");  
-      //    Serial.print(connect_attempt);    
-      //    Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
-      //    Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
-      //    Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
-      //  #endif 
+        #ifndef NOSERIAL  
+         Serial.print("reconnect_step = ");  
+         Serial.print(reconnect_step);
+         Serial.print(" connect_attempt = ");  
+         Serial.print(connect_attempt);    
+         Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
+         Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
+         Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
+       #endif 
 
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
-      reconnect_step = 1; timeout = 100;  return;  // Не подавать следующую команду пока не подключимся
+      reconnect_step = 1; timeout = 5000;  return;  // Не подавать следующую команду пока не подключимся
       }
+   else if (!GPRS_ready && reconnect_step > 0) {reconnect_step=0; connect_attempt=0;}  
    if (GPRS_ready && reconnect_step == 0) ++reconnect_step; 
    if(!TCP_ready && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
          GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; ++connect_attempt; return; // Не подавать следующую команду пока не подключимся
@@ -410,10 +411,15 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
         connect_attempt=0;
         if (reconnect_step < 7) {
            String topic ;
-           //topic += charSlash;// 21/11/2023
-           topic += _mqttClient;   
+           //topic += charSlash;// 21/11/2023          
+           topic = _mqttClient;   
            topic += mqttDeviceStatusTopic;    
-           mqttPublish(topic, mqttDeviceStatusOn);             
+           mqttPublish(topic, mqttDeviceStatusOn);   
+          //  topic =_mqttClient; 
+          //  topic += FPSTR(mqttDeviceIPTopic);  
+          //  String String_IP;
+          //      String_IP = F("GPRS");//IPAddress2String(WiFi.localIP());
+          //  mqttPublish(topic, String_IP);  // добавлено для отображения на MQTT локально IP адреса            
            mqttResubscribe(); 
           }
          GPRS_MQTT_ping(); //только поддержать соединение          
@@ -489,17 +495,18 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   char _inn_comm[max_text_com];
   int _curr_poz = 4; // текущая позиция в массиве
 
-    //  #ifndef NOSERIAL  
-    //     Serial.print("pub topic / mess ");     
-    //     Serial.print(_topic); 
-    //     Serial.print(" / ");         
-    //     Serial.println(_messege);         
-    //   #endif 
+     #ifndef NOSERIAL  
+        Serial.print("pub topic / mess ");     
+        Serial.print(_topic); 
+        Serial.print(" / ");         
+        Serial.println(_messege);         
+      #endif 
 
-    _inn_comm[0]=0x31; // было 0x30 без retain Qos0, 0x31 с retain Qos0, 0x33 Qos1 (не работает??)
-    _inn_comm[1]=_topic.length()+_messege.length()+2; 
+    _inn_comm[0]=0x33; // было 0x30 без retain Qos0, 0x31 с retain Qos0, 0x33 Qos1 (не работает??)
+    _inn_comm[1]=_topic.length()+_messege.length()+2+2; //отсавшаяся длина пакета
     _inn_comm[2]=0x00; _inn_comm[3]=_topic.length();
     for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
+    _inn_comm[_curr_poz]=0x00; ++_curr_poz; _inn_comm[_curr_poz]=0x10; ++_curr_poz; // идентификатор отправленного пакета для подтвержения публикации
     for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}   // сообщение  
     add_in_queue_comand(8, _inn_comm, 8);
   }                                                 
