@@ -33,7 +33,7 @@ const char paramMQTTClient[] PROGMEM = "mqttclient";
   const char mqttDeviceStatusTopic[] PROGMEM = "/Status";
   const char mqttDeviceStatusOn[] PROGMEM = "online";
   const char mqttDeviceStatusOff[] PROGMEM = "offline";
-  const char mqttDeviceIPTopic[] PROGMEM = "/DeviceIP";
+  const char mqttDeviceIPTopic[] PROGMEM = "/LocalIP";
   const uint8_t mqttDeviceStatusQos = 1;
   const bool mqttDeviceStatusRetained = true;
 

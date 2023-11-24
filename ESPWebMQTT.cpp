@@ -387,15 +387,15 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   
    if ((int32_t)(millis() - nextTime) >= 0) {
        
-        #ifndef NOSERIAL  
-         Serial.print("reconnect_step = ");  
-         Serial.print(reconnect_step);
-         Serial.print(" connect_attempt = ");  
-         Serial.print(connect_attempt);    
-         Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
-         Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
-         Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
-       #endif 
+      //   #ifndef NOSERIAL  
+      //    Serial.print("reconnect_step = ");  
+      //    Serial.print(reconnect_step);
+      //    Serial.print(" connect_attempt = ");  
+      //    Serial.print(connect_attempt);    
+      //    Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
+      //    Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
+      //    Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
+      //  #endif 
 
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
@@ -415,11 +415,11 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
            topic = _mqttClient;   
            topic += mqttDeviceStatusTopic;    
            mqttPublish(topic, mqttDeviceStatusOn);   
-          //  topic =_mqttClient; 
-          //  topic += FPSTR(mqttDeviceIPTopic);  
-          //  String String_IP;
-          //      String_IP = F("GPRS");//IPAddress2String(WiFi.localIP());
-          //  mqttPublish(topic, String_IP);  // добавлено для отображения на MQTT локально IP адреса            
+           topic =_mqttClient; 
+           topic += FPSTR(mqttDeviceIPTopic);  
+           String String_IP;
+               String_IP = F("GPRS");//IPAddress2String(WiFi.localIP());
+           mqttPublish(topic, String_IP);  // добавлено для отображения на MQTT локально IP адреса            
            mqttResubscribe(); 
           }
          GPRS_MQTT_ping(); //только поддержать соединение          

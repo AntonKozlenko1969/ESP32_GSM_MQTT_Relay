@@ -411,7 +411,8 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
         break;      
       case 1: 
         //if (!app->MQTT_connect) {_step=14; goto EndATCommand;} //признак неудачного TCP подключения 
-       _comm  = F("+CIPSEND"); _povtor = -1;  
+       _comm  = F("+CIPSEND="); _comm += String(modem_comand.text_com[1] + 2); // отправить определенное количество байт в модем
+        _povtor = -1;  
         goto sendATCommand;        
         break;    
       case 2: 
@@ -444,39 +445,17 @@ sendATCommand:
        if (flag_modem_resp == 8) {// Отправляем битовый массив модулю
         for (int8_t f=0; f<2; ++f) {// Отправить фиксированный заголовок 2 байта
          SIM800.write(modem_comand.text_com[f]); 
-         Serial.print(modem_comand.text_com[f],HEX); Serial.print(' ');
+         //Serial.print(modem_comand.text_com[f],HEX); Serial.print(' ');
          if (f==1) {// второй байт это длина остального сообщения которое надо отправить
           for (int r=0; r<modem_comand.text_com[f]; ++r) { 
               SIM800.write(modem_comand.text_com[f+r+1]);  
-              Serial.print(modem_comand.text_com[f+r+1],HEX); Serial.print(' ');
+              //Serial.print(modem_comand.text_com[f+r+1],HEX); Serial.print(' ');
           }
          } 
         }
-        SIM800.write(0x1A); Serial.print(0x1A,HEX); Serial.println();// маркер завершения пакета для SIM800
        }
      }
-    //  #ifndef NOSERIAL
-    //   if (flag_modem_resp == 6) {
-    //    Serial.print("                              DATA : ");  Serial.print(_comm.c_str()); }  // Дублируем команду в монитор порта
-    //   else if  (flag_modem_resp == 8) {
-    //    Serial.print("                     BIN DATA HEX: "); 
-    //     for (int8_t f=0; f<2; ++f) {// Отправить фиксированный заголовок 2 байта
-    //      Serial.print(modem_comand.text_com[f],HEX); Serial.print(' ');// Serial.print(modem_comand.text_com[f]);// Serial.print(' ');
-    //      if (f==1) {// второй байт это длина остального сообщения которое надо отправить
-    //       for (int r=0; r<modem_comand.text_com[f]; ++r) { //Serial.print(modem_comand.text_com[f+r+1]);// Serial.print(' ');
-    //           Serial.print(modem_comand.text_com[f+r+1],HEX); Serial.print(' '); }  } 
-    //     }   
-    //   Serial.println();
-    //   Serial.print("                   BIN DATA char: "); 
-    //     for (int8_t f=0; f<2; ++f) {// Отправить фиксированный заголовок 2 байта
-    //      Serial.print(modem_comand.text_com[f]); Serial.print(' ');// Serial.print(modem_comand.text_com[f]);// Serial.print(' ');
-    //      if (f==1) {// второй байт это длина остального сообщения которое надо отправить
-    //       for (int r=0; r<modem_comand.text_com[f]; ++r) { //Serial.print(modem_comand.text_com[f+r+1]);// Serial.print(' ');
-    //           Serial.print(modem_comand.text_com[f+r+1]); Serial.print(' '); }  } 
-    //     }  
-    //   Serial.println();         
-    //    }
-    //  #endif        
+
      //сбросить флаг только при признаке 6 или 8 (нужен чтобы отследить приглашение на ввод данных ">" при отправке СМС или данных в TCP соединение)
       flag_modem_resp = 0;   
   }
@@ -975,7 +954,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     // Обработка MQTT
     if (app->TCP_ready){
      
-      if (_response[0] == 0x30)  { app->MQTT_connect = true; print_MQTTrespons_to_serial(_response); // пришел ответ на публикацию в подписанном топике
+      if (_response[0] == 0x30)  { app->MQTT_connect = true; //print_MQTTrespons_to_serial(_response); // пришел ответ на публикацию в подписанном топике
          String s1; 
             s1 += _response.substring(4 , 4 + _response[3]);                 
         char _topik_path[s1.length()+1];
@@ -986,10 +965,10 @@ if (SIM800.available())   {                   // Если модем, что-т�
         _payload = &sb1;
          app->mqttCallback(_topik_path, _payload, 1);
         }
-      else if (_response[0] == 0x20 || _response[0] == 0x90) {app->MQTT_connect = true; print_MQTTrespons_to_serial(_response);}// пришло сообщение о подключении или удачной подписке на топик
-      else if (_response[0] == 0x40) {print_MQTTrespons_to_serial(_response);} //пришло сообщение о удачной публикации топика
+      else if (_response[0] == 0x20 || _response[0] == 0x90) {app->MQTT_connect = true; } // print_MQTTrespons_to_serial(_response);}// пришло сообщение о подключении или удачной подписке на топик
+      //else if (_response[0] == 0x40) {print_MQTTrespons_to_serial(_response);} //пришло сообщение о удачной публикации топика
       else if (_response.indexOf(F("CLOSED")) > -1) {app->MQTT_connect = false; app->TCP_ready=false;}
-      else if (_response[0] == 0xD0) {app->MQTT_connect = true; print_MQTTrespons_to_serial(_response);} // подтверждения ping от MQTT сервера
+      else if (_response[0] == 0xD0) {app->MQTT_connect = true; } //print_MQTTrespons_to_serial(_response);} // подтверждения ping от MQTT сервера
      }  
   }
 
