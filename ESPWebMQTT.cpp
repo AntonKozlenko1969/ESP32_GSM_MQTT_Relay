@@ -381,35 +381,36 @@ void ESPWebMQTTBase::waitedMQTT() {
 void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint32_t timeout; //  = 30000;
   static uint32_t nextTime;
-  //bool result = false;
+  static bool resub; // признак, что пепеподключение и переподпика прошла успешно
   static uint8_t connect_attempt;
   static uint8_t reconnect_step;
   
    if ((int32_t)(millis() - nextTime) >= 0) {
        
-      //   #ifndef NOSERIAL  
-      //    Serial.print("reconnect_step = ");  
-      //    Serial.print(reconnect_step);
-      //    Serial.print(" connect_attempt = ");  
-      //    Serial.print(connect_attempt);    
-      //    Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
-      //    Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
-      //    Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
-      //  #endif 
+        #ifndef NOSERIAL  
+         Serial.print("reconnect_step = ");  
+         Serial.print(reconnect_step);
+         Serial.print(" connect_attempt = ");  
+         Serial.print(connect_attempt);  
+         Serial.print(" resub = ");  if (resub) Serial.print(" TRUE "); else Serial.print(" FALSE ");               
+         Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
+         Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
+         Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
+       #endif 
 
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
-      reconnect_step = 1; timeout = 5000;  return;  // Не подавать следующую команду пока не подключимся
+      reconnect_step = 1; timeout = 5000; resub=false; return;  // Не подавать следующую команду пока не подключимся
       }
-   else if (!GPRS_ready && reconnect_step > 0) {reconnect_step=0; connect_attempt=0;}  
+   else if (!GPRS_ready && reconnect_step > 0) {reconnect_step=0; connect_attempt=0; resub=false;}  
    if (GPRS_ready && reconnect_step == 0) ++reconnect_step; 
    if(!TCP_ready && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
-         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 500; ++connect_attempt; return; // Не подавать следующую команду пока не подключимся
+         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 800; ++connect_attempt; return; // Не подавать следующую команду пока не подключимся
       }
    if (reconnect_step > 1) {
       if (MQTT_connect) {
         connect_attempt=0;
-        if (reconnect_step < 7) {
+        if (!resub) {
            String topic ;
            //topic += charSlash;// 21/11/2023          
            topic = _mqttClient;   
@@ -421,6 +422,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
                String_IP = F("GPRS");//IPAddress2String(WiFi.localIP());
            mqttPublish(topic, String_IP);  // добавлено для отображения на MQTT локально IP адреса            
            mqttResubscribe(); 
+           resub=true;
           }
          GPRS_MQTT_ping(); //только поддержать соединение          
          reconnect_step = 7; timeout = 30000;
@@ -429,11 +431,11 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
      }
 
     // если подключились к MQTT серверу, но сервер скинул подключение (не верный пользователь или пароль)
-    if (reconnect_step > 9) {reconnect_step=0; timeout = 30000;}//создать условие для нового прохода подключений через 20 * timeout
+    if (reconnect_step > 9) {reconnect_step=0; timeout = 30000; resub=false;}//создать условие для нового прохода подключений через 20 * timeout
     // если пытаемся подключиться, но сервер вообще не отвечает (сервер не доступен, не верный адрес, URL)
     if (connect_attempt == 10) timeout = 3*60*1000; // пробовать через 3 минуты
     if (connect_attempt == 30) timeout = 7*60*1000; // пробовать через 3 минуты
-    if (connect_attempt == 50) {timeout = 30*1000; connect_attempt=0;} // начать попытки заново
+    if (connect_attempt == 50) {timeout = 30*1000; connect_attempt=0; resub=false;} // начать попытки заново
 
    nextTime = millis() + timeout;  
   }
@@ -495,12 +497,12 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   char _inn_comm[max_text_com];
   int _curr_poz = 4; // текущая позиция в массиве
 
-     #ifndef NOSERIAL  
-        Serial.print("pub topic / mess ");     
-        Serial.print(_topic); 
-        Serial.print(" / ");         
-        Serial.println(_messege);         
-      #endif 
+    //  #ifndef NOSERIAL  
+    //     Serial.print("pub topic / mess ");     
+    //     Serial.print(_topic); 
+    //     Serial.print(" / ");         
+    //     Serial.println(_messege);         
+    //   #endif 
 
     _inn_comm[0]=0x33; // было 0x30 без retain Qos0, 0x31 с retain Qos0, 0x33 Qos1 (не работает??)
     _inn_comm[1]=_topic.length()+_messege.length()+2+2; //отсавшаяся длина пакета
