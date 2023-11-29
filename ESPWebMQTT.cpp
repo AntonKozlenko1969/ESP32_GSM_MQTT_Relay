@@ -359,17 +359,19 @@ void ESPWebMQTTBase::add_in_queue_comand(int _inncomand, const char* _inn_text_c
      modem_comand.text_com[v] = _inn_text_comand[v];
      if (_inncomand !=8) {if (_inn_text_comand[v] == NULL) break;}
    }
-  if (xQueueSend(queue_comand, &modem_comand, 0) == pdTRUE) {//portMAX_DELAY);
-      #ifndef NOSERIAL      
+   bool add_in_queue; // признак добавления команды в очередь
+  if (_inncomand ==30 && (String(modem_comand.text_com) == "H" || String(modem_comand.text_com) == "A" ))
+    add_in_queue = xQueueSendToFront(queue_comand, &modem_comand, 0);  
+  else
+    add_in_queue = xQueueSend(queue_comand, &modem_comand, 0);
+
+   #ifndef NOSERIAL   
+    if (add_in_queue == pdTRUE) {
         Serial.print("Add in QUEUE comand - "); Serial.print(_inncomand);
         Serial.print(" text : "); Serial.println(_inn_text_comand);
-      #endif     
-   }
-  else {
-      #ifndef NOSERIAL      
-        Serial.println("QUEUE is FULL"); 
-      #endif   
-  } 
+     }
+    else Serial.println("QUEUE is FULL");  
+   #endif   
 }
 
 void ESPWebMQTTBase::waitedMQTT() {
@@ -381,9 +383,11 @@ void ESPWebMQTTBase::waitedMQTT() {
 void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint32_t timeout; //  = 30000;
   static uint32_t nextTime;
-  static bool resub; // признак, что пепеподключение и переподпика прошла успешно
-  static uint8_t connect_attempt;
-  static uint8_t reconnect_step;
+  static bool resub; // признак, что переподключение и переподпика прошла успешно
+  static uint8_t connect_attempt; // количество попыток подключения к MQTT серверу
+  // шаг в процессе подключения, для исключения передачи в очередь одинаковых команд. 
+  // С момента ее первой подачи, до момента ее передачи в модем и исполнения.
+  static uint8_t reconnect_step; 
   
    if ((int32_t)(millis() - nextTime) >= 0) {
        
@@ -402,10 +406,10 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
        add_in_queue_comand(7,"", 0); //включить режим GPRS 
       reconnect_step = 1; timeout = 5000; resub=false; return;  // Не подавать следующую команду пока не подключимся
       }
-   else if (!GPRS_ready && reconnect_step > 0) {reconnect_step=0; connect_attempt=0; resub=false;}  
-   if (GPRS_ready && reconnect_step == 0) ++reconnect_step; 
+   if (!GPRS_ready && reconnect_step > 0) {++connect_attempt; resub=false;}  
+   if (GPRS_ready && reconnect_step == 0) {++reconnect_step;  resub=false;} 
    if(!TCP_ready && GPRS_ready && reconnect_step == 1) {//признак подключения к MQTT серверу
-         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 800; ++connect_attempt; return; // Не подавать следующую команду пока не подключимся
+         GPRS_MQTT_connect (); reconnect_step = 2; timeout = 800; ++connect_attempt; resub=false; return; // Не подавать следующую команду пока не подключимся
       }
    if (reconnect_step > 1) {
       if (MQTT_connect) {
@@ -425,7 +429,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
            resub=true;
           }
          GPRS_MQTT_ping(); //только поддержать соединение          
-         reconnect_step = 7; timeout = 30000;
+         reconnect_step = 7; timeout = 52000;
        }
       else { ++reconnect_step; }  
      }
@@ -433,9 +437,9 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
     // если подключились к MQTT серверу, но сервер скинул подключение (не верный пользователь или пароль)
     if (reconnect_step > 9) {reconnect_step=0; timeout = 30000; resub=false;}//создать условие для нового прохода подключений через 20 * timeout
     // если пытаемся подключиться, но сервер вообще не отвечает (сервер не доступен, не верный адрес, URL)
-    if (connect_attempt == 10) timeout = 3*60*1000; // пробовать через 3 минуты
-    if (connect_attempt == 30) timeout = 7*60*1000; // пробовать через 3 минуты
-    if (connect_attempt == 50) {timeout = 30*1000; connect_attempt=0; resub=false;} // начать попытки заново
+    if (connect_attempt == 7) timeout = 3*60*1000; // пробовать через 3 минуты
+    if (connect_attempt == 15) timeout = 7*60*1000; // пробовать через 7 минут
+    if (connect_attempt == 20) {timeout = 30*1000; reconnect_step=0; connect_attempt=0; resub=false;} // начать попытки заново
 
    nextTime = millis() + timeout;  
   }
@@ -475,7 +479,7 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
      rest_length += _mqttUser.length()+_mqttPassword.length()+4;
   }
   _inn_comm[1] = rest_length;  // оставшееся количество байт без логина и пароля пользователя
-  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x23; ++_curr_poz; // время жизни сессии (2 байта) 0x23-35sec, 0x28-40sec, 0x3C-60sec
+  _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x3C; ++_curr_poz; // время жизни сессии (2 байта) 0x23-35sec, 0x28-40sec, 0x3C-60sec
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =_mqttClient.length(); ++_curr_poz; // длина идентификатора (2 байта)
   for (int v=0;v<_mqttClient.length();++v) {_inn_comm[_curr_poz] = _mqttClient[v]; ++_curr_poz;}  // MQTT  идентификатор устройства
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=topic.length(); ++_curr_poz;  // длина LWT топика (2 байта) 
@@ -489,8 +493,9 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
      _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttPassword.length(); ++_curr_poz;// длина MQTT пароля (2 байта) 
      for (int v=0;v<_mqttPassword.length();++v) {_inn_comm[_curr_poz] = _mqttPassword[v]; ++_curr_poz;} // MQTT пароль
   }
-
+  add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), -1);
   add_in_queue_comand(8, _inn_comm, 8);
+  add_in_queue_comand(30, String(F("+GSMBUSY=0")).c_str(), -1);  
 }
 
  void ESPWebMQTTBase::GPRS_MQTT_pub (const String& _topic, const String& _messege) {          // пакет на публикацию
@@ -510,13 +515,19 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
     for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
     _inn_comm[_curr_poz]=0x00; ++_curr_poz; _inn_comm[_curr_poz]=0x10; ++_curr_poz; // идентификатор отправленного пакета для подтвержения публикации
     for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}   // сообщение  
-    add_in_queue_comand(8, _inn_comm, 8);
+
+  add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), -1);
+  add_in_queue_comand(8, _inn_comm, 8);
+  add_in_queue_comand(30, String(F("+GSMBUSY=0")).c_str(), -1);  
   }                                                 
 
 void ESPWebMQTTBase::GPRS_MQTT_ping () {                                // пакет пинга MQTT сервера для поддержания соединения
   char _inn_comm[max_text_com];
   _inn_comm[0]=0xC0; _inn_comm[1]=0x00;
-  add_in_queue_comand(8, _inn_comm, 8);  
+
+  add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), -1);
+  add_in_queue_comand(8, _inn_comm, 8);
+  add_in_queue_comand(30, String(F("+GSMBUSY=0")).c_str(), -1);   
 }
 
  void ESPWebMQTTBase::GPRS_MQTT_sub (const String& _topic) {                                       // пакет подписки на топик
@@ -534,5 +545,7 @@ void ESPWebMQTTBase::GPRS_MQTT_ping () {                                // па�
     for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}  
   _inn_comm[_curr_poz]=0x00;   
 
+  add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), -1);
   add_in_queue_comand(8, _inn_comm, 8);
+  add_in_queue_comand(30, String(F("+GSMBUSY=0")).c_str(), -1);  
    }     
