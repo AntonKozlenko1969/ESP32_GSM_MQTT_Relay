@@ -100,11 +100,6 @@ protected:
   virtual void GPRS_MQTT_sub (const String& _topic);
   virtual void GPRS_MQTT_ping ();
   WiFiClient* _espClient;
-  // String _mqttServer; // MQTT-брокер
-  // uint16_t _mqttPort; // Порт MQTT-брокера
-  // String _mqttUser; // Имя пользователя для авторизации
-  // String _mqttPassword; // Пароль для авторизации
-//  String _mqttClient; // Имя клиента для MQTT-брокера (используется при формировании имени топика для публикации в целях различия между несколькими клиентами с идентичным скетчем)
 };
 
 #endif

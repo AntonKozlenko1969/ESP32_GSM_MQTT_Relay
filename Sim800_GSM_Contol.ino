@@ -80,8 +80,8 @@ void GPRS_modem_traffic( void * pvParameters ){
   String _first_com;  // строковая переменная с командой из очереди команд
   _first_com.reserve(max_text_com+1);
 //************************************************
-  const String apn = F("wap.orange.md"); // vremenno
-  const char GPRScomsnt[] PROGMEM = "+SAPBR=";// vremenno
+  //const String apn = F("wap.orange.md"); // vremenno
+  const char GPRScomsnt[] PROGMEM = "+SAPBR=";
 // ********************************************************
 uint8_t command_type =0; //тип отправленной в модем команды 
                          // 1 - считать весь список телефонов с СИМ, создать файл PhoneBook.txt с текстом номеров
@@ -117,9 +117,9 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       _first_com = String(modem_comand.text_com);
       command_type = modem_comand.com;  
       flag_modem_resp = modem_comand.com_flag;
-      
-      if (command_type == 6 || command_type == 16) IsRestart = false; // признак однократной отправки Restart в модем
-      if (command_type == 11)  app->IsOpros = false;
+     //t_rst - задать отсчет до следующей проверки модема 
+      if (command_type == 6 || command_type == 16) {t_rst=millis(); IsRestart = false;} // признак однократной отправки Restart в модем
+      if (command_type == 11) {t_rst=millis(); app->IsOpros = false;}
 
      #ifndef NOSERIAL      
         Serial.print("                             Read from QUEUE comand - ");  Serial.print(command_type); 
@@ -146,7 +146,6 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
     digitalWrite(MODEM_PWRKEY, HIGH);
 
      vTaskDelay(2300); // меньше чем 2,3 секунды модем еще не готов
-    t_rst = millis();    
     //   goto EndATCommand; ++_step;
     //   break;    
     // case 0:    
@@ -217,9 +216,10 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       goto sendATCommand;
       break;     
     case 13:
-  _timeout = millis() + 35000;             // Переменная для отслеживания таймаута (35 секунд)
-  while (!PIN_ready && !CALL_ready && millis() < _timeout)  {vTaskDelay(5);}; // Ждем ответа 35 секунд, если пришел ответ или наступил таймаут, то...   
+  _timeout = millis();             // Переменная для отслеживания таймаута (35 секунд)
+  while (!PIN_ready && !CALL_ready && millis()-_timeout <= 35000)  {vTaskDelay(5);}; // Ждем ответа 35 секунд, если пришел ответ или наступил таймаут, то...   
       if (PIN_ready && CALL_ready){
+        t_rst=millis(); // задать отсчет до следующей проверки модема
          app->modemOK=true;    // модем готов к работе
          #ifndef NOSERIAL   
            Serial.println("                              MODEM OK");               // ... оповещаем об этом и...
@@ -289,7 +289,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
 
   else if (command_type == 11){ // Тестовая команда, раз в 5 минут
      if (_step == 0){ 
-       _comm=""; _povtor = 0; //t_rst=millis();
+       _comm=""; _povtor = 0;
        goto sendATCommand;        
      }
      else if(_step == 1) {
@@ -346,7 +346,19 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
      case 2:
          _comm = FPSTR(GPRScomsnt);
          _comm += F("3,1,\"APN\", \"");
-         _comm += apn +"\"" ; 
+         _comm += app->_gprsapn +"\"" ; 
+         if (app->_gprsuser != strEmpty) {
+         _comm += F(";");
+         _comm += FPSTR(GPRScomsnt);           
+         _comm += F("3,1,\"USER\", \"");
+         _comm += app->_gprsuser +"\"" ;            
+         }
+         if (app->_gprspwd != strEmpty) {
+         _comm += F(";");
+         _comm += FPSTR(GPRScomsnt);           
+         _comm += F("3,1,\"PWD\", \"");
+         _comm += app->_gprspwd +"\"" ;                
+         }
         goto sendATCommand;        
         break;  
      case 3:
@@ -467,7 +479,7 @@ sendATCommand:
   }
   else {  SIM800.write(_comm.c_str());       // Отправляем AT команду модулю из строки
      #ifndef NOSERIAL
-       Serial.print("                              Command : ");  Serial.print(_comm);   // Дублируем команду в монитор порта
+       Serial.print("                              Command : ");  Serial.println(_comm);   // Дублируем команду в монитор порта
      #endif  
   }  
   _timeout = millis();// + _interval * 1000;     // Переменная для отслеживания таймаута (_interval секунд)

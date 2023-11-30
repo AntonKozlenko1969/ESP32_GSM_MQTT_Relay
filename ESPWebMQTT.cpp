@@ -176,7 +176,7 @@ void ESPWebMQTTBase::handleMQTTConfig() {
   page += F("\">\n\
 <h3>MQTT Setup</h3>\n\
 <label>Server:</label><br/>\n");
-  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramMQTTServer), _mqttServer, String(F("maxlength=")) + String(maxStringLen));
+  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramMQTTServer), _mqttServer, String(F("maxlength=")) + String(maxStringLen) + String(F(" size=")) + String(maxStringLen));
   page += F("\n(leave blank to ignore MQTT)<br/>\n\
 <label>Port:</label><br/>\n");
   page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramMQTTPort), String(_mqttPort), F("maxlength=5"));
@@ -391,16 +391,16 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   
    if ((int32_t)(millis() - nextTime) >= 0) {
        
-        #ifndef NOSERIAL  
-         Serial.print("reconnect_step = ");  
-         Serial.print(reconnect_step);
-         Serial.print(" connect_attempt = ");  
-         Serial.print(connect_attempt);  
-         Serial.print(" resub = ");  if (resub) Serial.print(" TRUE "); else Serial.print(" FALSE ");               
-         Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
-         Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
-         Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
-       #endif 
+      //   #ifndef NOSERIAL  
+      //    Serial.print("reconnect_step = ");  
+      //    Serial.print(reconnect_step);
+      //    Serial.print(" connect_attempt = ");  
+      //    Serial.print(connect_attempt);  
+      //    Serial.print(" resub = ");  if (resub) Serial.print(" TRUE "); else Serial.print(" FALSE ");               
+      //    Serial.print(" GPRS_ready = ");  if (GPRS_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");         
+      //    Serial.print(" TCP_ready = ");  if (TCP_ready) Serial.print(" TRUE "); else Serial.print(" FALSE ");
+      //    Serial.print(" MQTT_connect = ");  if (MQTT_connect) Serial.println(" TRUE "); else Serial.println(" FALSE ");            
+      //  #endif 
 
    if( !GPRS_ready && reconnect_step == 0) { // признак подключения GPRS
        add_in_queue_comand(7,"", 0); //включить режим GPRS 

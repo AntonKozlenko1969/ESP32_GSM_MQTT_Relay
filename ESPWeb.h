@@ -43,6 +43,7 @@ const int8_t defNtpTimeZone = 3; // Временная зона по умолч�
 const uint32_t defNtpUpdateInterval = 3600000; // Интервал в миллисекундах для обновления времени с NTP-серверов (по умолчанию 1 час)
 
 const char defwhiteListPhones[] PROGMEM = "123456789"; // Белый список телефонов максимум 3 номера по DIGIT_IN_PHONENAMBER симолов
+const char defgprsapn[] PROGMEM = "wap.orange.md"; //GPRS APN по умолчанию
 
 const char pathSPIFFS[] PROGMEM = "/spiffs"; // Путь до страницы просмотра содержимого SPIFFS
 const char pathUpdate[] PROGMEM = "/update"; // Путь до страницы OTA-обновления
@@ -138,7 +139,11 @@ const char paramNtpTimeZone[] PROGMEM = "ntptimezone";
 const char paramNtpUpdateInterval[] PROGMEM = "ntpupdateinterval";
 const char paramTime[] PROGMEM = "time";
 const char paramReboot[] PROGMEM = "reboot";
+//Добавлено для использования GPRS
 const char paramGSMMode[] PROGMEM = "gsmmode"; 
+const char paramGPRS_apn[] PROGMEM = "gprsapn"; 
+const char paramGPRS_user[] PROGMEM = "gprsuser"; 
+const char paramGPRS_pwd[] PROGMEM = "gprspwd";
 
 const char paramWhiteList[] PROGMEM = "whiteList"; // Параметр белых номеров 
 const int total_bin_num = 2000; //2000 имеющихся в SPIFFS телефонной книге номеров
@@ -175,7 +180,10 @@ public:
   // а также число сохраненных бинарных номеров из BIN файла
   bool _gsmMode; // использовать GSM модем или нет
   String _whiteListPhones; // Белый список телефонов максимум 3 номера по 8 симолов
-  
+  String _gprsapn; // Настройка GPRS соединения
+  String _gprsuser;
+  String _gprspwd;
+
 protected:
   virtual void setupExtra(); // Дополнительный код инициализации
   virtual void loopExtra(); // Дополнительный код главного цикла

@@ -186,7 +186,7 @@ const char mqttLDRTopic[] PROGMEM = "/LDR";
 #ifdef ESP8266
 const int8_t gpios[] PROGMEM = { -1, 0, 1, 2, 3, 4, 5, 12, 13, 14, 15, 16 }; 
 #else
-const int8_t gpios[] PROGMEM = { -1, 0, 2, 12, 13, 14, 25 };
+const int8_t gpios[] PROGMEM = { -1, 0, 2, 12, 13, 14, 25, 36};
 #endif
 const char strNone[] PROGMEM = "(None)";
 

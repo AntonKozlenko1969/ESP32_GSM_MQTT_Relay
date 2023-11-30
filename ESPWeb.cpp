@@ -375,6 +375,9 @@ uint16_t ESPWebBase::readConfig() {
   getEEPROM(offset, _ntpUpdateInterval);
   offset += sizeof(_ntpUpdateInterval);
   offset = readEEPROMString(offset, _whiteListPhones, maxStringLen);  //считать список из 3-х белых номеров по 8 симовлов
+  offset = readEEPROMString(offset, _gprsapn, maxStringLen*2);
+  offset = readEEPROMString(offset, _gprsuser, maxStringLen);
+  offset = readEEPROMString(offset, _gprspwd, maxStringLen);  
   uint8_t crc = crc8EEPROM(0, offset);
   if (readEEPROM(offset++) != crc) {
     _log->println(F("CRC mismatch! Use default WiFi parameters."));
@@ -391,6 +394,10 @@ uint16_t ESPWebBase::readConfig() {
 
 uint16_t ESPWebBase::writeConfig(bool commit) {
   uint16_t offset = 0;
+
+// Автоматический выбор точки тоступа в зависимости от имени сети
+  if (_ssid.indexOf(String(FPSTR(defSSID)) + getBoardId()) > -1) _apMode=true;
+  else _apMode=false;
 
   _log->println(F("Writing config to EEPROM"));
   for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); ++i) {
@@ -412,6 +419,9 @@ uint16_t ESPWebBase::writeConfig(bool commit) {
   putEEPROM(offset, _ntpUpdateInterval);
   offset += sizeof(_ntpUpdateInterval);
   offset = writeEEPROMString(offset, _whiteListPhones, maxStringLen);  //Сохранить список из 3-х белых номеров
+  offset = writeEEPROMString(offset, _gprsapn, maxStringLen*2);
+  offset = writeEEPROMString(offset, _gprsuser, maxStringLen);
+  offset = writeEEPROMString(offset, _gprspwd, maxStringLen);      
   uint8_t crc = crc8EEPROM(0, offset);
   writeEEPROM(offset++, crc);
   if (commit)
@@ -438,6 +448,9 @@ void ESPWebBase::defaultConfig(uint8_t level) {
     _ntpTimeZone = defNtpTimeZone;
     _ntpUpdateInterval = defNtpUpdateInterval;
     _whiteListPhones = FPSTR(defwhiteListPhones);
+    _gprsapn = FPSTR(defgprsapn);
+    _gprsuser = String(strEmpty);
+    _gprspwd = String(strEmpty);
   }
 }
 
@@ -464,6 +477,12 @@ bool ESPWebBase::setConfigParam(const String& name, const String& value) {
     _ntpUpdateInterval = _max(0, value.toInt()) * 1000;
   else if (name.equals(FPSTR(paramWhiteList))) // Параметр белых номеров 
     _whiteListPhones = value;   
+  else if (name.equals(FPSTR(paramGPRS_apn))) 
+    _gprsapn = value;
+  else if (name.equals(FPSTR(paramGPRS_user))) 
+    _gprsuser = value;
+  else if (name.equals(FPSTR(paramGPRS_pwd)))     
+    _gprspwd = value;
   else
     return false;
 
@@ -1042,7 +1061,17 @@ return true;\n\
  if (_gsmMode){
 // Добавлено для сохранения 3-х белых номеров по 8 симолов
   page += F("<label>If use Lilygo T-CALL board NOT use GPIO 5 and GPIO 23 for Relay !</label><br/><p>\n");
-  page += F("\n\
+  page += F("<h3>GPRS Setup</h3>\n\
+<label>APN:</label><br/>\n");
+  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramGPRS_apn), _gprsapn, String(F("maxlength=")) + String(maxStringLen*2));
+  page += F("\n(leave blank to ignore MQTT)<br/>\n\
+<label>User:</label><br/>\n");
+  page += ESPWebBase::tagInput(FPSTR(typeText), FPSTR(paramGPRS_user), _gprsuser, String(F("maxlength=")) + String(maxStringLen));
+  page += F("\n(leave blank if authorization is not required)<br/>\n\
+<label>Password:</label><br/>\n");
+  page += ESPWebBase::tagInput(FPSTR(typePassword), FPSTR(paramGPRS_pwd), _gprspwd, String(F("maxlength=")) + String(maxStringLen));
+ 
+  page += F("\n<br/><p>\n\
 <label>White Phones List (max 3 numbers per ");
   page += DIGIT_IN_PHONENAMBER;
   page += F(" simbols) 123456789,123456789,123456789 :</label><br/>\n");
@@ -1503,7 +1532,9 @@ String ESPWebBase::tagInput(const String& type, const String& name, const String
     result += ESPWebBase::escapeQuote(value);
       result += charQuote;
   }
-  if (! local_WEB_access) result += FPSTR(" disabled");  // блокировать изменение, если доступ к WEB интерфейсу закрыт  
+  if (! local_WEB_access) result += FPSTR(" disabled");  // блокировать изменение, если доступ к WEB интерфейсу закрыт 
+   //для выбора точка доступа / инфраструктура закрыть выбор
+  else if (name.indexOf(FPSTR(paramApMode)) > -1) result += FPSTR(" disabled"); // этот выбор происходит автоматом
   result += charGreater;
    
   return result;
@@ -1527,6 +1558,8 @@ String ESPWebBase::tagInput(const String& type, const String& name, const String
   result += charSpace;
   result += extra;
   if (! local_WEB_access) result += FPSTR(" disabled");  // блокировать изменение, если доступ к WEB интерфейсу закрыт  
+   //для выбора точка доступа / инфраструктура закрыть выбор
+  else if (name.indexOf(FPSTR(paramApMode)) > -1) result += FPSTR(" disabled"); // этот выбор происходит автоматом  
   result += charGreater;
 
   return result;
