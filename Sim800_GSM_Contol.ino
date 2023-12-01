@@ -6,7 +6,7 @@
 #define MODEM_RX             26
 
 // Initialize the indicator as an output
-//#define LED_GPIO             13
+#define STATUS_LED_GPIO         19
 // #define LED_ON               HIGH
 // #define LED_OFF              LOW
 
@@ -400,7 +400,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       } // end swith select
   } //end    if comm=7    
   else if (command_type == 8) { // connect to MQTT server
-     _interval = 55; // интервал в секундах ожидания ответа от модема  
+     _interval = 21; // интервал в секундах ожидания ответа от модема  
     switch (_step) {
       case 0: 
       if(app->TCP_ready) {_step=1; goto EndATCommand;}//признак подключения к MQTT серверу
@@ -411,13 +411,13 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
        _comm.reserve(_comm.length()+8);
        {String st_temp8=String(app->_mqttPort);
        _comm += st_temp8; } //PORT;
-       _comm += F("\""); _povtor = -1;   
+       _comm += F("\""); _povtor = 0;   
         goto sendATCommand;        
         break;      
       case 1: 
         //if (!app->MQTT_connect) {_step=14; goto EndATCommand;} //признак неудачного TCP подключения 
        _comm  = F("+CIPSEND="); _comm += String(modem_comand.text_com[1] + 2); // отправить определенное количество байт в модем
-        _povtor = -1;  
+        _povtor = 0;  
         goto sendATCommand;        
         break;    
       case 2: 
@@ -658,7 +658,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
     if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) // запрос от модема на ввод текста сообщения
        comand_OK = true; 
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
-    else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {PIN_ready = false; app->modemOK = false;}
+    else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {
+      PIN_ready = false; MQTT_connect = false; TCP_ready=false; CALL_ready = false; modemOK = false;}
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
@@ -1006,6 +1007,39 @@ if (SIM800.available())   {                   // Если модем, что-т�
         app->add_in_queue_comand(30, temp2.c_str(), 0);  //ОТправить входящую СМС на считывание содержания и обработку
      }   
   }
+
+//************ Индикация состояния на GRIO19 *********************************
+   static unsigned long t_Led; 
+   static int count_led; // счетчик миганий
+   static int16_t frequency_led; // время смены состояния
+   static int16_t next_led;
+   if (count_led == 0) { //исходное состояние
+     frequency_led=1000;
+   }
+
+   if (millis()-t_Led > next_led) {
+
+      if ( modemOK ) {
+       if (count_led == -1) {
+          if (MQTT_connect ) {count_led=3; frequency_led=400;} //моргает 4 раз потом пауза 
+          else if (GPRS_ready) {count_led=2; frequency_led=400;} //моргает 3 раз потом пауза           
+        } 
+       else if (count_led < -1) {
+        count_led=1; frequency_led=1000; }
+       }      
+      else {
+         if ( count_led == -1) {count_led=4; frequency_led=400; //моргает 5 раз потом пауза
+           if (SIM_fatal_error) {count_led=7; frequency_led=400;} //моргает 8 раз потом пауза      
+         }  
+      }
+
+        digitalWrite(STATUS_LED_GPIO, !digitalRead(STATUS_LED_GPIO));
+        t_Led=millis();  
+        if (!digitalRead(STATUS_LED_GPIO)) {--count_led; next_led=frequency_led;} 
+        else next_led=400;
+     // Serial.print("count_led = ");Serial.print(count_led); Serial.print(" frequency_led = ");Serial.println(frequency_led);
+   } 
+
 }
 
 void print_MQTTrespons_to_serial(const String& _resp){
