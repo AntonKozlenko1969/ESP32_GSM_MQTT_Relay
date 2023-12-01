@@ -360,7 +360,7 @@ void ESPWebMQTTBase::add_in_queue_comand(int _inncomand, const char* _inn_text_c
      if (_inncomand !=8) {if (_inn_text_comand[v] == NULL) break;}
    }
    bool add_in_queue; // признак добавления команды в очередь
-  if (_inncomand ==30 && (String(modem_comand.text_com) == "H" || String(modem_comand.text_com) == "A" ))
+  if (_inncomand ==30 && (String(modem_comand.text_com) == "H" || String(modem_comand.text_com) == "A" || String(modem_comand.text_com) == "+CIPCLOSE"))
     add_in_queue = xQueueSendToFront(queue_comand, &modem_comand, 0);  
   else
     add_in_queue = xQueueSend(queue_comand, &modem_comand, 0);
@@ -440,7 +440,8 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
     if (connect_attempt > 6) timeout = 3*60*1000; // пробовать через 3 минуты
     if (connect_attempt > 15) timeout = 7*60*1000; // пробовать через 7 минут
     if (connect_attempt == 20) {timeout = 30*1000; reconnect_step=0; connect_attempt=0; resub=false;} // начать попытки заново
-
+    if (!modemOK) {reconnect_step=0; timeout = 30000; resub=false;}//создать условие для нового прохода подключений
+    
    nextTime = millis() + timeout;  
   }
 
