@@ -629,18 +629,40 @@ if (SIM800.available())   {                   // Если модем, что-т�
     // _response.trim();
     // if (_response == strEmpty) _response = SIM800.readStringUntil('\n');
    // _response = SIM800.readString();
-       char inchar; int8_t inn_r=0; int8_t inn_n=0; uint inn_simv=0;
+       char inchar; static int8_t inn_r=0; // количество раз получения символа \r \n
     _response=strEmpty;
-    while (SIM800.available()){
-        inchar = SIM800.read();
+   while (SIM800.available()){
+      int16_t num_in_simvol=0; // порядковый номер входящего символа
+        inchar = SIM800.read(); ++num_in_simvol;
+        // Serial.print(' ');Serial.print(inchar,HEX);
   //ответ от SIM800 заключен в "скобки" из двух символов <CR><CN> -- respons -- <CR><CN>
-  //получиь, в каждом заходе, чистый ОДИНОЧНЫЙ ответ без этих "скобок"        
-        if (inchar == '\r') {++inn_r; ++inn_simv;}
-        else if (inchar == '\n') { ++inn_n; ++inn_simv;
-           if (inn_simv > 1 && inn_n == 2 && inn_r == 2) break;
+  //получиь, в каждом заходе, чистый ОДИНОЧНЫЙ ответ без этих "скобок"
+  //данные из TCP соединения приходят "голые" без заголовка и окончания
+  // приглашение на ввод текста СМС или данных приходит с начальными символами <CR><CN> но без завершающих 
+  // последний символ пробел 0D 0A 3E 20 <CR><CN> '>' '_'
+  // это надо разделять при получении
+        if (inchar == '\r') {
+          char inchar_n; inchar_n = SIM800.read(); ++num_in_simvol;// Serial.print(' '); Serial.print(inchar_n, HEX);// считать следующий символ
+          if (inchar_n == '\n') {// если он \n обработать
+           ++inn_r;
+           // если первые скобки <CR><CN> пришли в одной строке с ответом от TCP соединения
+           if (inn_r == 1 && num_in_simvol > 1) break; //дочитать остаток строки в следующем цикле переменная  inn_r - static
+           if (inn_r == 2) {inn_r=0; break;}
           }
-        else { _response += inchar; ++inn_simv;}
-    }
+          else { // если след символ не \n добавить оба символа в строку ответа _response
+           _response += inchar; _response += inchar_n;
+          }
+        }
+        else if (inchar == 0x3E && inn_r == 1){ // после первых скобок <CR><CN> пришел символ > для ввода данных ...
+           _response += inchar; 
+           inchar = SIM800.read(); ++num_in_simvol; //считать след симол
+           if (inchar == 0x20) { // если это пробел завершить прием строки ответа и не ждать вторых скобок <CR><CN>
+             _response += inchar; inn_r=0; break;
+           }
+           else _response += inchar; 
+        }
+        else { _response += inchar; }
+    } 
       #ifndef NOSERIAL      
         Serial.println("          " + _response);                  // Если нужно выводим в монитор порта  
         // for (int f=0;f<_response.length();++f){
@@ -659,7 +681,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
        comand_OK = true; 
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {
-      PIN_ready = false; MQTT_connect = false; TCP_ready=false; CALL_ready = false; modemOK = false;}
+      PIN_ready = false; app->MQTT_connect = false; app->TCP_ready=false; CALL_ready = false; app->modemOK = false;}
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
@@ -1019,17 +1041,17 @@ if (SIM800.available())   {                   // Если модем, что-т�
 
    if (millis()-t_Led > next_led) {
 
-      if ( modemOK ) {
+      if ( app->modemOK ) {
        if (count_led == -1) {
-          if (MQTT_connect ) {count_led=3; frequency_led=400;} //моргает 4 раз потом пауза 
-          else if (GPRS_ready) {count_led=2; frequency_led=400;} //моргает 3 раз потом пауза           
+          if (app->MQTT_connect ) {count_led=3; frequency_led=400;} //моргает 4 раз потом пауза 
+          else if (app->GPRS_ready) {count_led=2; frequency_led=400;} //моргает 3 раз потом пауза           
         } 
        else if (count_led < -1) {
         count_led=1; frequency_led=1000; }
        }      
       else {
          if ( count_led == -1) {count_led=4; frequency_led=400; //моргает 5 раз потом пауза
-           if (SIM_fatal_error) {count_led=7; frequency_led=400;} //моргает 8 раз потом пауза      
+           if (app->SIM_fatal_error) {count_led=7; frequency_led=400;} //моргает 8 раз потом пауза      
          }  
       }
 
