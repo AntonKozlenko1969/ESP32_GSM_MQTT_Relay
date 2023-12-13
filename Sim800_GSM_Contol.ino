@@ -744,13 +744,11 @@ if (SIM800.available())   {                   // Если модем, что-т�
     }
     //********* проверка отправки SMS ***********
     else if (_response.indexOf(F("+CMGS:")) > -1) {       // Пришло сообщение об отправке SMS
-      //flag_modem_resp = 1; //Выставляем флаг и далее при получении ответа от модема OK или ERROR понимаем отправлено СМС или нет
-      t_last_command = millis();  
+      //t_last_command = millis();  
       #ifndef NOSERIAL        
         Serial.print("Sending SMS ");
         Serial.print("flag_modem_resp = "); Serial.println(String(flag_modem_resp));   
       #endif
-      // Находим последний перенос строки, перед статусом
     }
     //********** проверка приема SMS ***********
     else if (_response.indexOf(F("+CMTI:")) > -1) {       // Пришло сообщение о приеме SMS
@@ -874,7 +872,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     if (_response.indexOf(F("OK")) > -1) { // если происходит соединение с MQTT сервером отследить CONNECT OK
       comand_OK = true;
       String SMSResp_Mess;
-     if (SMS_currentIndex !=0 && millis() > t_last_command && flag_modem_resp == 6){
+     if (SMS_currentIndex !=0 && flag_modem_resp == 6){ //&& millis() > t_last_command
         #ifndef NOSERIAL        
           Serial.println ("Message was sent. OK");
         #endif
