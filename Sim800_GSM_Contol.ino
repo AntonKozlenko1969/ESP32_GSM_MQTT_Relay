@@ -731,13 +731,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
       add_in_queue_SMS(result.toInt());
     }
     else if (_response.indexOf(F("+CMGR:")) > -1) {    // Пришел текст SMS сообщения 
-        _response += '\r' + SIM800.readStringUntil('\n'); //.readString();  читаем до конца строки (без OK) 
-        {
-           //Serial.print(" ======= _response  "); Serial.print(_response); Serial.println(" =======");          
-           String  temp_in = SIM800.readString(); // если модем прислал текст сообщения, дочитываем до OK и закрываем команду
-           //Serial.print(" ======= temp_in  "); Serial.print(temp_in);  Serial.println(" =======");          
-        }
-        comand_OK = true;    
+        _response += '\r' + SIM800.readStringUntil('\n'); // читаем до конца строки (без OK) 
         parseSMS(_response);        // Распарсить SMS на элементы
     }
     else if (_response.indexOf(F("+CPBS:")) > -1){ // выяснить количество занятых номеров на СИМ и общее возможное количество
