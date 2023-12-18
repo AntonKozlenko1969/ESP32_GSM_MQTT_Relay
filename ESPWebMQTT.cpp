@@ -382,14 +382,14 @@ void ESPWebMQTTBase::waitedMQTT() {
 
 void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint32_t timeout; //  = 30000;
-  static uint32_t nextTime;
+  static uint32_t lastTime;
   static bool resub; // признак, что переподключение и переподпика прошла успешно
   static uint8_t connect_attempt; // количество попыток подключения к MQTT серверу
   // шаг в процессе подключения, для исключения передачи в очередь одинаковых команд. 
   // С момента ее первой подачи, до момента ее передачи в модем и исполнения.
   static uint8_t reconnect_step; 
   
-   if ((int32_t)(millis() - nextTime) >= 0) {
+   if ((millis() - lastTime) >= timeout) {
        
       //   #ifndef NOSERIAL  
       //    Serial.print("reconnect_step = ");  
@@ -442,7 +442,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
     if (connect_attempt == 20) {timeout = 30*1000; reconnect_step=0; connect_attempt=0; resub=false;} // начать попытки заново
     if (!modemOK) {reconnect_step=0; timeout = 30000; resub=false;}//создать условие для нового прохода подключений
     
-   nextTime = millis() + timeout;  
+   lastTime = millis();  
   }
 
 }
