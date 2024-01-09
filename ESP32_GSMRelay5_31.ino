@@ -486,7 +486,7 @@ void ESPWebMQTTRelay::loopExtra() {
     if (ir->decode(&results)) {
       lastIRType = results.decode_type;
       if (results.value != 0xFFFFFFFF) // repeat
-        lastIRValue = results.value;
+        lastIRValue = (uint32_t)results.value;
       if (results.decode_type == irType) {
         _log->print("IR value 0x");
         _log->println((uint32_t)results.value, HEX);
@@ -989,14 +989,14 @@ bool ESPWebMQTTRelay::setConfigParam(const String& name, const String& value) {
     } else {
 #ifdef USEIRREMOTE
       if (name.equals(FPSTR(paramIRGPIO)))
-        irPin = constrain(value.toInt(), -1, 16);
+        irPin = constrain(value.toInt(), -1, 40); //09/01/2024 было последнее значение 16
       else if (name.equals(FPSTR(paramIRType)))
         irType = constrain(value.toInt(), 1, 15);
       else
 #endif
 #ifdef USEDHT
       if (name.equals(FPSTR(paramDHTGPIO)))
-        dhtPin = constrain(value.toInt(), -1, 16);
+        dhtPin = constrain(value.toInt(), -1, 40); //09/01/2024 было последнее значение 16
       else if (name.equals(FPSTR(paramDHTType)))
         dhtType = value.toInt();
       else if (name.equals(FPSTR(paramDHTMinTemp))) {
@@ -1025,7 +1025,7 @@ bool ESPWebMQTTRelay::setConfigParam(const String& name, const String& value) {
 #endif
 #ifdef USEDS1820
       if (name.equals(FPSTR(paramDSGPIO)))
-        dsPin = constrain(value.toInt(), -1, 16);
+        dsPin = constrain(value.toInt(), -1, 40); //09/01/2024 было последнее значение 16
       else if (name.equals(FPSTR(paramDSMinTemp))) {
         if (value.length())
           dsMinTemp = value.toFloat();
