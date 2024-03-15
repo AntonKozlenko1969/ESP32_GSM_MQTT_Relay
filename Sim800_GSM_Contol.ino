@@ -646,8 +646,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) // запрос от модема на ввод текста сообщения
        comand_OK = true; 
     else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
-    else if (_response.indexOf(F("+CPIN: NOT READY")) > -1) {
-      PIN_ready = false; app->MQTT_connect = false; app->TCP_ready=false; CALL_ready = false; app->modemOK = false;}
+    else if (_response.indexOf(F("+CPIN: NOT READY")) > -1 || _response.indexOf(F("+CPIN: NOT INSERTED")) > -1) simNotReady();
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
@@ -945,12 +944,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         app->MQTT_connect = false; app->TCP_ready=false;
         flag_modem_resp=0;
       }    
-      if (_response.indexOf(F("SIM not inserted")) > -1) {
-        app->SIM_fatal_error=true;
-        #ifndef NOSERIAL        
-         Serial.println ("SIM FATAL ERROR");
-        #endif      
-      }  
+      if (_response.indexOf(F("SIM not inserted")) > -1) simNotReady();
      }
     //*************************************************
     // Обработка MQTT
@@ -1021,6 +1015,14 @@ if (SIM800.available())   {                   // Если модем, что-т�
    } 
 
 }
+
+void simNotReady(){
+    PIN_ready = false; app->MQTT_connect = false; app->TCP_ready=false; CALL_ready = false; app->modemOK = false;
+    app->SIM_fatal_error=true;
+    #ifndef NOSERIAL        
+    Serial.println ("SIM FATAL ERROR");
+    #endif      
+}  
 
 void print_MQTTrespons_to_serial(const String& _resp){
     #ifndef NOSERIAL
