@@ -1638,6 +1638,9 @@ void ESPWebBase::readTXTCSVfile() {
       #endif
    return;
   }
+       #ifndef NOSERIAL 
+        Serial.println("!!!!!  Start Read File  !!!!!!!!!!!"); // для отладки отправляем по UART все что прочитали с карты.
+       #endif    
   while (PhoneFile.available()) {  //Читаем содержимое файла
     buffer = PhoneFile.readStringUntil('\n');//Считываем с карты весь дотекст в строку до символа окончания.
     if (buffer.length() == DIGIT_IN_PHONENAMBER+1){
@@ -1657,9 +1660,9 @@ void ESPWebBase::readTXTCSVfile() {
        for (int8_t g=0; g < buffer.length()-1; ++g)
          phones_on_sim[ind] |= uint64_t(buffer[g] - '0') << (60-g*4); 
 
-      //  #ifndef NOSERIAL 
-      //   Serial.print(String(ind)); Serial.print(" - "); Serial.println(buffer); // для отладки отправляем по UART все что прочитали с карты.
-      //  #endif  
+       #ifndef NOSERIAL 
+        Serial.print(String(ind)); Serial.print(" - "); Serial.println(buffer); // для отладки отправляем по UART все что прочитали с карты.
+       #endif  
        ++ind;            
      } 
     }
