@@ -645,7 +645,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     }  
     if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) // запрос от модема на ввод текста сообщения
        comand_OK = true; 
-    else if (_response.indexOf(F("+CPIN: READY")) > -1) PIN_ready = true;
+    else if (_response.indexOf(F("+CPIN: READY")) > -1) {PIN_ready = true; app->SIM_fatal_error = false;}
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1 || _response.indexOf(F("+CPIN: NOT INSERTED")) > -1) simNotReady();
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
