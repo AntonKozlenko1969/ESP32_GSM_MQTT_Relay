@@ -390,7 +390,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
   static uint8_t reconnect_step; 
   
    if ((millis() - lastTime) >= timeout) {
-       
+   lastTime = millis();         
       //   #ifndef NOSERIAL  
       //    Serial.print("reconnect_step = ");  
       //    Serial.print(reconnect_step);
@@ -442,9 +442,7 @@ void ESPWebMQTTBase::GPRS_MQTT_Reconnect(){
     if (connect_attempt == 20) {timeout = 30*1000; reconnect_step=0; connect_attempt=0; resub=false;} // начать попытки заново
     if (!modemOK) {reconnect_step=0; timeout = 30000; resub=false;}//создать условие для нового прохода подключений
     
-   lastTime = millis();  
   }
-
 }
 
 void ESPWebMQTTBase::GPRS_MQTT_connect (){
