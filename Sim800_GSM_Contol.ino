@@ -402,7 +402,10 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
   if (command_type != 0) {
 // только при отправке текста СМС или при отправке данных, после получения приглашения > не добавлять AT в начало команды и '\r' в конце
      if (!((flag_modem_resp == 6 || flag_modem_resp == 8) && _step == 13)) {
-      _comm = String(F("AT")) + _comm + String(charCR); //Добавить в конце командной строки <CR>
+       String _temp_com = _comm;
+      _comm = F("AT");
+      _comm += _temp_com;
+      _comm += String(charCR); //Добавить в конце командной строки <CR>
        if (command_type==30 && _comm.indexOf(F("ATH")) > -1) one_call = false; //Serial.println(" ****** COMMAND ATH *********");}      
       } 
 
