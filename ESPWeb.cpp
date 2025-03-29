@@ -174,7 +174,7 @@ void ESPWebBase::_loop() { // Изменено
   const uint32_t timeout = 7*60000; // 7 min.
   static uint32_t nextTime = timeout;
   // если указано работать как станция, а подключения к сети нет, попробовать подключиться если такая сеть в зоне доступа
-  if ((!_apMode) && (WiFi.status() != WL_CONNECTED) && ((WiFi.getMode() == WIFI_STA) || ((int32_t)(millis() - nextTime) >= 0))) {
+  if (WiFi.softAPgetStationNum() == 0 && (!_apMode) && (WiFi.status() != WL_CONNECTED) && ((WiFi.getMode() == WIFI_STA) || ((int32_t)(millis() - nextTime) >= 0))) {
 
   int nwifi = WiFi.scanNetworks(false,false,true,100U);
   bool WiFi_found = false;
