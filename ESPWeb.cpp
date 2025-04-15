@@ -704,15 +704,15 @@ setInterval(refreshData, 1000);\n");
   #endif
   page += ESPWebBase::webPageScript(script);
   page += ESPWebBase::webPageBody();
+  page += F("<h3>");
   #ifdef ESP8266   
-  page += F("<h3>ESP8266</h3>\n\
-<p>\n\
-Heap free size: <span id=\"");
+  page += F("ESP8266");
   #else  
-  page += F("<h3>ESP32</h3>\n\
-<p>\n\
-Heap free size: <span id=\"");
+  page += F("ESP32");
   #endif
+  page += F("</h3>\n\
+<p>\n\
+Heap free size: <span id=\"");  
   page += FPSTR(jsonFreeHeap);
   page += F("\">0</span> bytes<br/>\n\
 Uptime: <span id=\"");
