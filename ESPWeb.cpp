@@ -1628,6 +1628,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
 void ESPWebBase::readTXTCSVfile() {
   bool isnum=true; // признак, что весь текст из цифр
   int16_t ind =0; //текущий индекс считанного номера
+  int _start =0; // если текст номера больше DIGIT_IN_PHONENAMBER - начинать читать не с нулевого символа
   String buffer;
   String file_nume=F("/Nomera2000.txt");
    File PhoneFile =  SPIFFS.open(file_nume, FILE_READ);
@@ -1643,25 +1644,35 @@ void ESPWebBase::readTXTCSVfile() {
        #endif    
   while (PhoneFile.available()) {  //Читаем содержимое файла
     buffer = PhoneFile.readStringUntil('\n');//Считываем с карты весь дотекст в строку до символа окончания.
-    if (buffer.length() == DIGIT_IN_PHONENAMBER+1){
+    if (buffer.length() >= DIGIT_IN_PHONENAMBER+1){
+      _start = buffer.length() - DIGIT_IN_PHONENAMBER-1;
+      // #ifndef NOSERIAL 
+      //     Serial.print ("buffer.length()= "); Serial.print(buffer.length());
+      //     Serial.print (" _start= "); Serial.println(_start);
+      // #endif      
     //char charBuf[buffer.length()+1];
     //buffer.toCharArray(charBuf, buffer.length());  
      isnum=true; // признак, что весь текст из цифр
      for (int v=0; v < DIGIT_IN_PHONENAMBER; ++v) {
-       if (buffer[v]<48 || buffer[v]>57) // если число ничего не делать
+       if (buffer[v+_start]<48 || buffer[v+_start]>57) // если число ничего не делать
            {isnum=false; 
              #ifndef NOSERIAL 
-                Serial.print ("NOT INT value = "); Serial.println(buffer[v]);
+                Serial.print ("NOT INT value = "); Serial.println(buffer[v+_start]);
              #endif
            break;} // если не числовой символ выставить флаг и выйти из цикла
+         if (_start >0)  buffer[v] = buffer[v+_start]; //Если кооличество символов номера больше необходимого - сдвинуть на разницу и оставить последние DIGIT_IN_PHONENAMBER
      }
      if (isnum){
          phones_on_sim[ind]=0;
-       for (int8_t g=0; g < buffer.length()-1; ++g)
-         phones_on_sim[ind] |= uint64_t(buffer[g] - '0') << (60-g*4); 
 
+       for (int8_t g=0; g < buffer.length()-1-_start; ++g) {
+         phones_on_sim[ind] |= uint64_t(buffer[g] - '0') << (60-g*4); 
+        //  #ifndef NOSERIAL 
+        //    Serial.print(buffer[g]); // для отладки отправляем по UART все что прочитали с карты.
+        //  #endif         
+       }
        #ifndef NOSERIAL 
-        Serial.print(String(ind)); Serial.print(" - "); Serial.println(buffer); // для отладки отправляем по UART все что прочитали с карты.
+        Serial.print(" ");Serial.print(String(ind)); Serial.print(" - "); Serial.println(buffer); // для отладки отправляем по UART все что прочитали с карты.
        #endif  
        ++ind;            
      } 

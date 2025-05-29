@@ -518,11 +518,11 @@ void Sim800_setup() {
 
    ReLoadBinMassiv(); // обнулить все номера телефонов в массиве и загрузить из BIN файла все номера 
   
-  //  #ifndef NOSERIAL 
-  //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
-  //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
-  //  }
-  //  #endif 
+   #ifndef NOSERIAL 
+   for (int16_t n=0; n < app->alloc_num[2]; ++n){
+        Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
+   }
+   #endif 
 
    queue_IN_SMS = xQueueCreate(max_queue, sizeof(int)); // очередь обработки СМС
 
@@ -662,13 +662,18 @@ if (SIM800.available())   {                   // Если модем, что-т�
       int phoneindex = _response.indexOf(F("+CLIP: \""));// Есть ли информация об определении номера, если да, то phoneindex>-1
       String innerPhone = "";                   // Переменная для хранения определенного номера
       if (phoneindex >= 0) {                    // Если информация была найдена
-        phoneindex += DIGIT_IN_PHONENAMBER-1;  // Парсим строку и ...
-       // innerPhone = _response.substring(_response.indexOf("\"", phoneindex)-DIGIT_IN_PHONENAMBER, _response.indexOf("\"", phoneindex)); //innerPhone = _response.substring(phoneindex, _response.indexOf("\"", phoneindex)); // ...получаем номер
-        innerPhone = _response.substring(_response.indexOf(charQuote, phoneindex)-DIGIT_IN_PHONENAMBER, _response.indexOf(charQuote, phoneindex)); //NEW // ...получаем номер
-      #ifndef NOSERIAL          
-        Serial.print("Number: "); Serial.println(innerPhone); // Выводим номер в монитор порта
-        poisk_num(innerPhone); // Выводим номер в монитор порта        
-      #endif  
+        phoneindex = _response.indexOf(charQuote, phoneindex)+1; //первые кавычки
+        int _quote2 = _response.indexOf(charQuote, phoneindex);  //вторые кавычки
+        if ((_quote2 - phoneindex) - DIGIT_IN_PHONENAMBER > 0) phoneindex = phoneindex + ((_quote2 - phoneindex) - DIGIT_IN_PHONENAMBER);
+        innerPhone = _response.substring(phoneindex, _quote2 ); // номер внутри кавычек
+        
+      #ifndef NOSERIAL 
+        Serial.print("phoneindex: "); Serial.println(phoneindex);             
+        Serial.print("Number: "); Serial.println(innerPhone); // Выводим номер в монитор порта   
+        Serial.print("_quote2: "); Serial.println(_quote2);
+        poisk_num(innerPhone); // Выводим номер в монитор порта    
+      #endif          
+
         //поиск текстового поля в ответе +CLIP: "069071234",129,"",0,"",0
         int last_comma_index = _response.lastIndexOf(',');
         int fist_comma_index = String(_response.substring(0,last_comma_index-1)).lastIndexOf(',');
@@ -1061,7 +1066,7 @@ void parseSMS(const String& msg) {                                   // Парс
       else  SMS_incoming_num[j] = msgphone[j];
   }
  // получить короткий номер с которого было послано СМС - последние симолы 
-  String short_INnumber =String(SMS_incoming_num).substring(String(SMS_incoming_num).length()-(DIGIT_IN_PHONENAMBER-1));
+  String short_INnumber =String(SMS_incoming_num).substring(String(SMS_incoming_num).length()-DIGIT_IN_PHONENAMBER);
    #ifndef NOSERIAL 
     Serial.print("Phone: "); Serial.println(msgphone);                       // Выводим номер телефона
     Serial.print("Message: " ); Serial.println(msgbody);                      // Выводим текст SMS
@@ -1375,7 +1380,7 @@ void made_action(int _command, int _answer)
       return;   
       }      
  // получить короткий номер с которого было послано СМС - последние симолы 
-    String short_INnumber =String(SMS_text_num).substring(String(SMS_text_num).length()-(DIGIT_IN_PHONENAMBER-1)); 
+    String short_INnumber =String(SMS_text_num).substring(String(SMS_text_num).length()-DIGIT_IN_PHONENAMBER); 
    #ifndef NOSERIAL 
     Serial.print("short_INnumber: "); Serial.println(short_INnumber);     
    #endif       

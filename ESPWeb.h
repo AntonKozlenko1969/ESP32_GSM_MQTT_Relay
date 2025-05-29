@@ -13,7 +13,7 @@
 #define SIM800  Serial1
 //uint8_t command_type =0; //тип отправленной в модем команды 1 - считать весь список телефонов с СИМ
 
-#define DIGIT_IN_PHONENAMBER 9
+#define DIGIT_IN_PHONENAMBER 8
 
 // Односимвольные константы
 const char charCR = '\r';
