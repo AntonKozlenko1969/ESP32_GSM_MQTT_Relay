@@ -184,6 +184,8 @@ public:
   String _gprsuser;
   String _gprspwd;
 
+  StringLog* _log; // Логи скетча 30/05/2025
+
 protected:
   virtual void setupExtra(); // Дополнительный код инициализации
   virtual void loopExtra(); // Дополнительный код главного цикла
@@ -273,7 +275,7 @@ protected:
   virtual String tagInput(const String& type, const String& name, const String& value); // HTML-код для тэга INPUT
   virtual String tagInput(const String& type, const String& name, const String& value, const String& extra); // HTML-код для тэга INPUT с дополнительными параметрами
  
-  StringLog* _log; // Логи скетча
+  //StringLog* _log; // Логи скетча
   bool _apMode; // Режим точки доступа (true) или инфраструктуры (false)
   String _ssid; // Имя сети или точки доступа
   String _password; // Пароль сети

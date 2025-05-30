@@ -694,26 +694,35 @@ if (SIM800.available())   {                   // Если модем, что-т�
       }
       // Проверяем, чтобы длина номера была больше 6 цифр, и номер должен быть в списке
       // app ->_whiteListPhones Белый список телефонов максимум 3 номера по 8 симолов
+      String _tempString =F("Call from:");
+      _tempString +=innerPhone;
+      app->_log->println(_tempString);
       if (innerPhone.length() > DIGIT_IN_PHONENAMBER-3 && app->_whiteListPhones.indexOf(innerPhone) > -1) {
          regular_call(); // Если звонок от БЕЛОГО номера из EEPROM - ответить, включить реле и сбросить вызов
+        app->_log->println(F("Call from WhiteList"));
         #ifndef NOSERIAL  
           Serial.println("Call from WhiteList");
         #endif  
       }         
       else if (innerPhone == textnumber && textnumber.length() == DIGIT_IN_PHONENAMBER){
         regular_call(); // Если звонок от БЕЛОГО номера из СИМ карты - ответить, включить реле и сбросить вызов  
+        app->_log->println(F("Call from SIM number"));
         #ifndef NOSERIAL  
           Serial.println("Call from SIM number");
         #endif  
       }  
       else if (poisk_num(innerPhone)>-1) {
-        regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов        
+        regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов   
+        app->_log->println(F("Call from BIN number"));             
         #ifndef NOSERIAL  
           Serial.println("Call from BIN number");
         #endif        
       }  
     // Если нет, то отклоняем вызов  
-      else  app->add_in_queue_comand(30, "H", 0);
+      else { 
+        app->_log->println(F("Call from WRONG number"));   
+        app->add_in_queue_comand(30, "H", 0);
+        }
     }
     //********* проверка отправки SMS ***********
     else if (_response.indexOf(F("+CMGS:")) > -1) {       // Пришло сообщение об отправке SMS
@@ -1160,7 +1169,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
       return;
      }
 
-  if ((firstIndex == -1 || firstIndex > 3) || (is_phonenumber == 1 && msg.length() < 13)) //неверный формат SMS сообщения
+  if ((firstIndex == -1 || firstIndex > 3) || (is_phonenumber == 1 && msg.length() < (4+DIGIT_IN_PHONENAMBER))) //неверный формат SMS сообщения
   {
     //String eol_eor = F("\r\n");
     SMSResp_Mess  = F("Wrong SMS format");
@@ -1169,7 +1178,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
     // SMSResp_Mess += eol_eor;
     // SMSResp_Mess +=F("COM-3 simvols (necessary) command");  
     // SMSResp_Mess += eol_eor;
-    // SMSResp_Mess +=F("PHONE-9 digit (necessary)");      
+    // SMSResp_Mess +=F("PHONE- DIGIT_IN_PHONENAMBER digit (necessary)");      
     // SMSResp_Mess += eol_eor;
     // SMSResp_Mess +=F("COMMENT-5 simvols (not necessary)");            
 
@@ -1184,9 +1193,9 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   }
   else {  // нужен номер телефона (и комментарий к нему) из СМС 
 
-    if (msg.length() > 13)  // если  комментария тоже нет
+    if (msg.length() > (4+DIGIT_IN_PHONENAMBER))  // если  комментария тоже нет
      {
-       comment = msg.substring(13);
+       comment = msg.substring((5+DIGIT_IN_PHONENAMBER*2));
        if (comment.length() > 6) comment = comment.substring(0, 5);
        IsComment=true; 
      }
@@ -1529,6 +1538,7 @@ void AddEditNewNumber(){
     temp_resp += charQuote; 
   //Выставляем флаг 3 для отслеживания OK 
    app->add_in_queue_comand(30,temp_resp.c_str(), 3);
+   app->_log->println(temp_resp); 
 }
 
 // процедура выясняет количество имеющихся номеров в книге и общее возможное количество и сохранет их в массив alloc_num[]
@@ -1629,16 +1639,16 @@ PhoneBookNew.txt
 Файл для максимум 250 номеров.
 Эти номера можно сохранить на СИМ карту (предварительно ее очистив SMS командой Dan# расшифровывается как Delete All Numbers)
 Формат записи строки для одного номера
-порядковый номер  ### ;  DIGIT_IN_PHONENAMBER (9 - девять) цифр номера ; те же 9 цифр номера и 5 символов комментария (только латинские буквы!!)
+порядковый номер  ### ;  DIGIT_IN_PHONENAMBER (8 ) цифр номера ; те же 8 цифр номера и 6 символов комментария (только латинские буквы!!)
 
 пример:
-1;123456789;123456789kommt
-2;987654321;987654321tmmok
+1;12345678;12345678kommt
+2;98765432;98765432tmmok
 
 Nomera2000.txt
 
 Файл для максимум 2000 номеров
-в каждой строке только номер из DIGIT_IN_PHONENAMBER (= 9) цифр
+в каждой строке только номер из DIGIT_IN_PHONENAMBER (= 8) цифр
 
 пример:
 987650000
