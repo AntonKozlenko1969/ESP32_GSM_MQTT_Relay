@@ -171,13 +171,18 @@ void ESPWebBase::_setup() {// Изменено
 }
 
 void ESPWebBase::_loop() { // Изменено
-  const uint32_t timeout = 7*60000; // 7 min.
+  const uint32_t timeout = 1*60000; // 7 min.
   static uint32_t nextTime = timeout;
   // если указано работать как станция, а подключения к сети нет, попробовать подключиться если такая сеть в зоне доступа
-  if (WiFi.softAPgetStationNum() == 0 && (!_apMode) && (WiFi.status() != WL_CONNECTED) && ((WiFi.getMode() == WIFI_STA) || ((int32_t)(millis() - nextTime) >= 0))) {
+  //if (!_apMode && (WiFi.status() != WL_CONNECTED) && ((WiFi.getMode() == WIFI_STA) || ((int32_t)(millis() - nextTime) >= 0))) {
+  if (!_apMode && (WiFi.status() != WL_CONNECTED) && ((int32_t)(millis() - nextTime) >= 0)) {    
+    #ifndef NOSERIAL
+       Serial.println(F("Scan WiFi ..."));
+    #endif
 
-  int nwifi = WiFi.scanNetworks(false,false,true,100U);
-  bool WiFi_found = false;
+  if (WiFi.softAPgetStationNum() == 0){
+   int nwifi = WiFi.scanNetworks(false,false,true,100U);
+   bool WiFi_found = false;
      if (nwifi > 0) {
         String namewifi = "" ;
         String ssidwifi=_ssid.c_str();
@@ -191,7 +196,11 @@ void ESPWebBase::_loop() { // Изменено
           }
        }
 
-    if (WiFi_found) setupWiFi();
+     if (WiFi_found) setupWiFi();
+   }
+   
+   if (WiFi.getMode() != WIFI_AP && WiFi.getMode() != WIFI_AP_STA) setupWiFi();
+
     nextTime = millis() + timeout;
   }
 
@@ -589,7 +598,7 @@ uint32_t ESPWebBase::getTime() {
     now = sntp_get_current_timestamp();
   #else
     now = time(NULL)+_ntpTimeZone*60*60; // Added
-   #endif  
+  #endif  
 
     if (now > 1483228800UL) { // 01.01.2017 0:00:00
       _lastNtpTime = now;

@@ -649,7 +649,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
     if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) // запрос от модема на ввод текста сообщения
        comand_OK = true; 
     else if (_response.indexOf(F("+CPIN: READY")) > -1) {PIN_ready = true; app->SIM_fatal_error = false;}
-    else if (_response.indexOf(F("+CPIN: NOT READY")) > -1 || _response.indexOf(F("+CPIN: NOT INSERTED")) > -1) simNotReady();
+    else if (_response.indexOf(F("+CPIN: NOT INSERTED")) > -1) simNotReady();
+    else if (_response.indexOf(F("+CPIN: NOT READY")) > -1 ) CALL_ready = false;    
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
@@ -694,34 +695,50 @@ if (SIM800.available())   {                   // Если модем, что-т�
       }
       // Проверяем, чтобы длина номера была больше 6 цифр, и номер должен быть в списке
       // app ->_whiteListPhones Белый список телефонов максимум 3 номера по 8 симолов
-      String _tempString =F("Call from:");
+      // uint32_t _now = app->getTime();
+       String _tempString ="";
+      // if (_now < 1483228800UL)
+      //  _tempString +=dateTimeToStr(_now);
+      // else {
+      //   app->_log->print("Time NOT set ");
+      //   _tempString +=F("Time NOT set ");
+      // }
+      _tempString +=F(" Call from:");      
       _tempString +=innerPhone;
-      app->_log->println(_tempString);
+      //app->logDateTime(0);
+      app->_log->print(_tempString);
       if (innerPhone.length() > DIGIT_IN_PHONENAMBER-3 && app->_whiteListPhones.indexOf(innerPhone) > -1) {
          regular_call(); // Если звонок от БЕЛОГО номера из EEPROM - ответить, включить реле и сбросить вызов
-        app->_log->println(F("Call from WhiteList"));
+        app->_log->println(F(" from WhiteList"));
         #ifndef NOSERIAL  
-          Serial.println("Call from WhiteList");
+          Serial.print(_tempString);
+          Serial.println(" Call from WhiteList");
         #endif  
       }         
       else if (innerPhone == textnumber && textnumber.length() == DIGIT_IN_PHONENAMBER){
         regular_call(); // Если звонок от БЕЛОГО номера из СИМ карты - ответить, включить реле и сбросить вызов  
-        app->_log->println(F("Call from SIM number"));
+        app->_log->println(F(" from SIM number"));
         #ifndef NOSERIAL  
-          Serial.println("Call from SIM number");
+          Serial.print(_tempString);        
+          Serial.println(" Call from SIM number");
         #endif  
       }  
       else if (poisk_num(innerPhone)>-1) {
         regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов   
-        app->_log->println(F("Call from BIN number"));             
+        app->_log->println(F(" from BIN number"));             
         #ifndef NOSERIAL  
-          Serial.println("Call from BIN number");
+          Serial.print(_tempString);        
+          Serial.println(" Call from BIN number");
         #endif        
       }  
     // Если нет, то отклоняем вызов  
       else { 
-        app->_log->println(F("Call from WRONG number"));   
+        app->_log->println(F(" WRONG number"));   
         app->add_in_queue_comand(30, "H", 0);
+        #ifndef NOSERIAL  
+          Serial.print(_tempString);        
+          Serial.println(" WRONG number");
+        #endif             
         }
     }
     //********* проверка отправки SMS ***********
@@ -1052,7 +1069,9 @@ void simNotReady(){
     app->SIM_fatal_error=true;
     #ifndef NOSERIAL        
     Serial.println ("SIM FATAL ERROR");
-    #endif      
+    #endif    
+    app->_log->println(F("SIM FATAL ERROR"));
+    digitalWrite(MODEM_POWER_ON, LOW); // отключить модем  
 }  
 
 void print_MQTTrespons_to_serial(const String& _resp){
