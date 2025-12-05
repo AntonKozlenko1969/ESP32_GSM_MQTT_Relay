@@ -166,6 +166,9 @@ const char jsonLDR[] PROGMEM = "ldr";
 // Названия топиков для MQTT
 const char mqttRelayTopic[] PROGMEM = "/Relay";
 
+const char removeDisabled[] PROGMEM = "').removeAttribute('disabled');\n";
+const char setDisabled[] PROGMEM = "').setAttribute('disabled','');\n";
+
 #ifdef CONFIRM_CONFIG_TOPIC
 const char mqttRelayConfirmTopic[] PROGMEM = "/Confirm"; //топик для публикаций роложения реле
 const char mqttRelayConfigTopic[] PROGMEM = "/Config"; //топик для подписки и получения сообщений
@@ -1108,7 +1111,9 @@ void ESPWebMQTTRelay::handleRootPage() {
   page += ESPWebBase::webPageStyle(pathIndexCss, true);
   page += ESPWebBase::webPageScript(pathIndexJs, true);
   page += ESPWebBase::webPageBody();
-  page += F("<h3>ESP Relay</h3>\n\
+  page +=F("<h3> ");
+  page += String(ESP.getChipModel());//  page += F("<h3>ESP Relay</h3>\n
+  page +=F("</h3>\n\  
 <p>\n\
 MQTT broker: <span id=\"");
   page += FPSTR(jsonMQTTConnected);
@@ -1361,11 +1366,38 @@ else\n");
   script += FPSTR(jsonLDR);
   script += F(";\n");
 #endif
-  script += F("}\n\
-}\n\
-request.send(null);\n\
-}\n\
-setInterval(refreshData, 500);\n");
+
+  script += F("var inputEl = document.getElementsByTagName('input');\n");
+ script += F("if (data.");
+ script += FPSTR(jsonMQTTConnected);
+ script += F(" && !data.relay4) {\n"); 
+ for (int8_t id = 0; id < maxRelays; id++) {
+    script += FPSTR(getElementById);
+    script += FPSTR(jsonRelay);
+    script += String(id);
+    script += FPSTR(setDisabled);
+  }
+  script += F("for (var i=0; i<inputEl.length; i++) ");
+  script += F("inputEl[i].setAttribute('disabled','');\n");
+  script += F("}\n");  
+
+ script += F("if (!data.");
+ script += FPSTR(jsonMQTTConnected);
+ script += F(" || data.relay4) {\n"); 
+ for (int8_t id = 0; id < maxRelays; id++) {
+    script += FPSTR(getElementById);
+    script += FPSTR(jsonRelay);
+    script += String(id);
+    script += FPSTR(removeDisabled);
+  } 
+ script += F("for (i=0; i<inputEl.length; i++) ");
+ script += F("inputEl[i].removeAttribute('disabled');\n");
+ script += F("}\n");  
+ 
+ script += F("}\n}\n");
+ 
+ script += F("request.send(null);\n}\n");
+ script += F("setInterval(refreshData, 500);\n"); 
 
   httpServer->send(200, FPSTR(applicationJavascript), script);
 }
