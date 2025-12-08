@@ -186,7 +186,8 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
        // AT+CLTS=0 Отключить вывод текущей временной зоны при каждом входящем звонке
        // AT+CUSD=0 Отключить вывод дополнительной информации при каждом входящем звонке
     case 10:
-      _comm=F("+CLTS=0;+CUSD=0"); _povtor = 2;
+     // _comm=F("+CLTS=0;+CUSD=0"); _povtor = 2;
+      _comm=F("+CLTS=1;+CUSD=1"); _povtor = 2;     
       break;   
    
     case 11:
@@ -529,7 +530,7 @@ void Sim800_setup() {
   for (int v = 0; v < 250; ++v) // обнулить все номера телефонов в массиве
     {
      app->PhoneOnSIM[v][0] = NULL;
-     app->CommentOnSIM[v][14] = NULL;
+     app->CommentOnSIM[v][0] = NULL;
      app->indexOnSim[v]=0;
     }
 
@@ -653,6 +654,10 @@ if (SIM800.available())   {                   // Если модем, что-т�
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1 ) CALL_ready = false;    
     else if (_response.indexOf(F("+CCALR: 1")) > -1) CALL_ready = true;
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
+    else if (_response.indexOf(F("+CCLK")) > -1) 
+     { String _tempTime = _response.substring(_response.indexOf(charQuote)+1, _response.indexOf(charQuote)+18); // дата / время внутри кавычек
+      app->_log->println(_tempTime);
+     }  
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
 
       //one_call - признак однократного снятия трубки, т.к. при повторных сигналах вызова и сбое в модеме реле может срабатывать многократно 
@@ -672,7 +677,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         Serial.print("phoneindex: "); Serial.println(phoneindex);             
         Serial.print("Number: "); Serial.println(innerPhone); // Выводим номер в монитор порта   
         Serial.print("_quote2: "); Serial.println(_quote2);
-        poisk_num(innerPhone); // Выводим номер в монитор порта    
+        poisk_num(innerPhone); // Выводим номер в монитор порта  
       #endif          
 
         //поиск текстового поля в ответе +CLIP: "069071234",129,"",0,"",0
@@ -703,21 +708,19 @@ if (SIM800.available())   {                   // Если модем, что-т�
       //   app->_log->print("Time NOT set ");
       //   _tempString +=F("Time NOT set ");
       // }
-      _tempString +=F(" Call from:");      
+      _tempString +=F("Call from:");      
       _tempString +=innerPhone;
-      //app->logDateTime(0);
-      app->_log->print(_tempString);
       if (innerPhone.length() > DIGIT_IN_PHONENAMBER-3 && app->_whiteListPhones.indexOf(innerPhone) > -1) {
          regular_call(); // Если звонок от БЕЛОГО номера из EEPROM - ответить, включить реле и сбросить вызов
-        app->_log->println(F(" from WhiteList"));
+        _tempString +=F(" from WhiteList");
         #ifndef NOSERIAL  
           Serial.print(_tempString);
           Serial.println(" Call from WhiteList");
         #endif  
       }         
       else if (innerPhone == textnumber && textnumber.length() == DIGIT_IN_PHONENAMBER){
-        regular_call(); // Если звонок от БЕЛОГО номера из СИМ карты - ответить, включить реле и сбросить вызов  
-        app->_log->println(F(" from SIM number"));
+        regular_call(); // Если звонок от БЕЛОГО номера из СИМ карты - ответить, включить реле и сбросить вызов
+        _tempString +=F(" from SIM number");        
         #ifndef NOSERIAL  
           Serial.print(_tempString);        
           Serial.println(" Call from SIM number");
@@ -725,7 +728,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
       }  
       else if (poisk_num(innerPhone)>-1) {
         regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов   
-        app->_log->println(F(" from BIN number"));             
+        _tempString +=F(" from BIN number");          
         #ifndef NOSERIAL  
           Serial.print(_tempString);        
           Serial.println(" Call from BIN number");
@@ -733,13 +736,16 @@ if (SIM800.available())   {                   // Если модем, что-т�
       }  
     // Если нет, то отклоняем вызов  
       else { 
-        app->_log->println(F(" WRONG number"));   
         app->add_in_queue_comand(30, "H", 0);
+        _tempString +=F(" WRONG number"); 
         #ifndef NOSERIAL  
           Serial.print(_tempString);        
           Serial.println(" WRONG number");
         #endif             
         }
+        _tempString += F(" on ");
+        app->_log->print(_tempString);     
+        app->add_in_queue_comand(30, "+CCLK?", 0); //Запрос на текущее время 08/12/2025
     }
     //********* проверка отправки SMS ***********
     else if (_response.indexOf(F("+CMGS:")) > -1) {       // Пришло сообщение об отправке SMS
@@ -753,6 +759,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     else if (_response.indexOf(F("+CMTI:")) > -1) {       // Пришло сообщение о приеме SMS
       #ifndef NOSERIAL       
         Serial.println("Incoming SMS");
+
       #endif  
       int index = _response.lastIndexOf(',');   // Находим последнюю запятую, перед индексом
       String result = _response.substring(index + 1, _response.length()); // Получаем индекс
@@ -805,7 +812,10 @@ if (SIM800.available())   {                   // Если модем, что-т�
              Serial.print("File String +CPBF: index= "); Serial.print(phonen_index); 
              Serial.print(" ; number= "); Serial.print(textnumber);                          
              Serial.print(" ; comment= "); Serial.print(textnumbercomment); 
-             Serial.print(" flag_modem_resp = "); Serial.println(flag_modem_resp);              
+             Serial.print(" flag_modem_resp = "); Serial.println(flag_modem_resp);    
+             app->_log->print("File String +CPBF: index= "); app->_log->print(phonen_index); 
+             app->_log->print(" ; number= "); app->_log->print(textnumber);                          
+             app->_log->print(" ; comment= "); app->_log->println(textnumbercomment);         
            #endif 
       if (flag_modem_resp == 2)  // одиночный поиск номера из СМС 
        {
@@ -822,10 +832,10 @@ if (SIM800.available())   {                   // Если модем, что-т�
           _response +=textnumber;  
           _response +=';'; 
           _response +=textnumbercomment;  
-          _response +=charCR + charLF;//"\r\n"; 
+          //_response +=charCR + charLF;//"\r\n"; 
        //Заполнить массив номерами и коментариями для записи в текстовый файл
         for (uint8_t m=0; m<DIGIT_IN_PHONENAMBER; ++m) app->PhoneOnSIM[phonen_index.toInt()][m] = textnumber[m];   
-        for (uint8_t m=0; m<15; ++m)    //textnumbercomment.length()        
+        for (uint8_t m=0; m<(DIGIT_IN_PHONENAMBER+6); ++m)    //textnumbercomment.length()        
             { if (textnumbercomment.length() < m)
                 {app->CommentOnSIM[phonen_index.toInt()][m] = NULL; 
                 break;
@@ -835,7 +845,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
             }     
 
            #ifndef NOSERIAL     
-             Serial.print("numer text= "); Serial.println(_response);              
+             Serial.print("numer text= "); Serial.println(_response);
+             app->_log->print("numer text= "); app->_log->println(_response);
            #endif                                  
        }    
     }    
@@ -905,7 +916,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
                    _response +=app->PhoneOnSIM[j][m];
                    _response +=';';
                    _response += String(app->CommentOnSIM[j]); 
-                   _response +=charCR + charLF;//"\r\n";  
+                   //_response +=charCR + charLF;//"\r\n";  
                    #ifndef NOSERIAL     
                      Serial.println("csv text= " + _response);              
                     #endif  
@@ -1138,6 +1149,10 @@ void EraseCurrSMS(){
      if (SMS_currentIndex != 0) { // удалить текущую SMS, чтобы не забивали память модуля  
         String  temp_string = "+CMGD=" + String(SMS_currentIndex) + ",0";
           app->add_in_queue_comand(30, temp_string.c_str(), 0);
+        #ifndef NOSERIAL        
+          app->_log->println("Message was sent. OK ");
+          app->_log->println(temp_string);          
+        #endif          
           SMS_currentIndex=0;
           num_text_comanda = -1; //номер команды из СМС в массиве команд comand_nume
       }
@@ -1181,6 +1196,10 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
              Serial.print(msg);         
              Serial.print(" SMS Comanda - "); 
              Serial.println(comment);
+             app->_log->print("*** mess - "); 
+             app->_log->print(msg);   
+             app->_log->print(" SMS Comanda - ");                         
+             app->_log->println(comment);              
           #endif
    //От команды зависит, что делать дальше 
     // - проверять наличие прикрепленного телефона 
@@ -1234,7 +1253,15 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
      }
     #ifndef NOSERIAL      
       Serial.print("SMS phonenumber "); Serial.println(phoneNUM);
-      if (IsComment) {Serial.print("SMS comment "); Serial.println(comment);}  // если есть прикрепленный к номеру комментари
+      if (IsComment) // если есть прикрепленный к номеру комментари
+      {Serial.print("SMS comment "); Serial.println(comment);
+        app->_log->print("SMS comment ");                    
+        app->_log->println(comment);          
+      }  
+      else 
+      {
+        app->_log->println("NO comment in SMS");             
+      }
     #endif
 
     SMSResp_Mess = F("Phone-");

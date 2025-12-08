@@ -174,7 +174,7 @@ public:
   bool local_WEB_access = false; 
 
   char PhoneOnSIM[250][DIGIT_IN_PHONENAMBER];
-  char CommentOnSIM[250][15];  
+  char CommentOnSIM[250][DIGIT_IN_PHONENAMBER+6];  
   uint8_t indexOnSim[250]; // индекс номера на СИМ карте, если 0 - записать в любой свободный индекс (только для записи на сим)
   int16_t alloc_num[3]={0,0,0}; //Количество имеющихся в телефонной книге номеров и общее возможное количество номеров
   // а также число сохраненных бинарных номеров из BIN файла
