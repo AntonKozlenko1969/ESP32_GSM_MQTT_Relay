@@ -187,7 +187,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
        // AT+CUSD=0 Отключить вывод дополнительной информации при каждом входящем звонке
     case 10:
      // _comm=F("+CLTS=0;+CUSD=0"); _povtor = 2;
-      _comm=F("+CLTS=1;+CUSD=1"); _povtor = 2;     
+      _comm=F("+CLTS=1;+CUSD=0"); _povtor = 2;     
       break;   
    
     case 11:
@@ -204,6 +204,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
          app->modemOK=true;    // модем готов к работе
          #ifndef NOSERIAL   
            Serial.println("                              MODEM OK");               // ... оповещаем об этом и...
+           app->_log->println("MODEM OK");
          #endif    
        }
       #ifndef NOSERIAL         
@@ -510,9 +511,9 @@ void Sim800_setup() {
     pinMode(MODEM_POWER_ON, OUTPUT);
 
 
- SMS_incoming_num[DIGIT_IN_PHONENAMBER]=NULL; // номер с которого пришло СМС - для ответной СМС
- SMS_text_num[DIGIT_IN_PHONENAMBER]=NULL;  // номер телефона из СМС
- SMS_text_comment[5]=NULL; // комментарий к номеру из СМС
+ SMS_incoming_num[0]=NULL; // номер с которого пришло СМС - для ответной СМС
+ SMS_text_num[0]=NULL;  // номер телефона из СМС
+ SMS_text_comment[0]=NULL; // комментарий к номеру из СМС
 
     // Set GSM module baud rate and UART pins
     SIM800.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
@@ -578,6 +579,7 @@ void ReLoadBinMassiv(){
 }
 
 void Sim800_loop() {
+  static String _logCallstring ="";
 // сбрасывать модуль через интервал - раз в 30 часов
 if (millis() > 60*60*1000*30)   ESP.restart();
 
@@ -656,8 +658,20 @@ if (SIM800.available())   {                   // Если модем, что-т�
     else if (_response.indexOf(F("+CCALR: 0")) > -1) CALL_ready = false;
     else if (_response.indexOf(F("+CCLK")) > -1) 
      { String _tempTime = _response.substring(_response.indexOf(charQuote)+1, _response.indexOf(charQuote)+18); // дата / время внутри кавычек
-      app->_log->println(_tempTime);
-     }  
+      _tempTime[_tempTime.indexOf(charComma)] = charSemicolon; // заменить запятую на точку с запятой, чтобы в CSV правильно отображались столбцы
+      String tempcallTimeLog = _tempTime + _logCallstring;
+      tempcallTimeLog[0] = _tempTime[6]; tempcallTimeLog[1] = _tempTime[7];
+      tempcallTimeLog[6] = _tempTime[0]; tempcallTimeLog[7] = _tempTime[1];   
+      app->_log->println(_tempTime);         
+      app->writeTXTstring(tempcallTimeLog,4);
+      app->_save_log_string();      
+     } 
+    else if (_response.indexOf(F("PSUTTZ:")) > -1) {
+      app->carrYar =_response.substring(_response.indexOf(charComma)-4, _response.indexOf(charComma));
+       #ifndef NOSERIAL 
+        Serial.print("app->carrYar: "); Serial.println(app->carrYar);   
+      #endif      
+    }      
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
 
       //one_call - признак однократного снятия трубки, т.к. при повторных сигналах вызова и сбое в модеме реле может срабатывать многократно 
@@ -676,7 +690,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
       #ifndef NOSERIAL 
         Serial.print("phoneindex: "); Serial.println(phoneindex);             
         Serial.print("Number: "); Serial.println(innerPhone); // Выводим номер в монитор порта   
-        Serial.print("_quote2: "); Serial.println(_quote2);
+        //Serial.print("_quote2: "); Serial.println(_quote2);
         poisk_num(innerPhone); // Выводим номер в монитор порта  
       #endif          
 
@@ -713,39 +727,39 @@ if (SIM800.available())   {                   // Если модем, что-т�
       if (innerPhone.length() > DIGIT_IN_PHONENAMBER-3 && app->_whiteListPhones.indexOf(innerPhone) > -1) {
          regular_call(); // Если звонок от БЕЛОГО номера из EEPROM - ответить, включить реле и сбросить вызов
         _tempString +=F(" from WhiteList");
-        #ifndef NOSERIAL  
-          Serial.print(_tempString);
-          Serial.println(" Call from WhiteList");
-        #endif  
+        _logCallstring =";";
+        _logCallstring += innerPhone;
+        _logCallstring += ";;;";        
       }         
       else if (innerPhone == textnumber && textnumber.length() == DIGIT_IN_PHONENAMBER){
         regular_call(); // Если звонок от БЕЛОГО номера из СИМ карты - ответить, включить реле и сбросить вызов
-        _tempString +=F(" from SIM number");        
-        #ifndef NOSERIAL  
-          Serial.print(_tempString);        
-          Serial.println(" Call from SIM number");
-        #endif  
+        _tempString +=F(" from SIM number");
+        _logCallstring =";;";
+        _logCallstring += innerPhone;
+        _logCallstring += ";;";                
       }  
       else if (poisk_num(innerPhone)>-1) {
         regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов   
-        _tempString +=F(" from BIN number");          
-        #ifndef NOSERIAL  
-          Serial.print(_tempString);        
-          Serial.println(" Call from BIN number");
-        #endif        
+        _tempString +=F(" from BIN number");  
+        _tempString +=F(" from SIM number");
+        _logCallstring =";;;";
+        _logCallstring += innerPhone;
+        _logCallstring += ";";                   
       }  
     // Если нет, то отклоняем вызов  
       else { 
         app->add_in_queue_comand(30, "H", 0);
         _tempString +=F(" WRONG number"); 
-        #ifndef NOSERIAL  
-          Serial.print(_tempString);        
-          Serial.println(" WRONG number");
-        #endif             
+        _logCallstring =";;;;";
+        _logCallstring += innerPhone;      
         }
         _tempString += F(" on ");
-        app->_log->print(_tempString);     
-        app->add_in_queue_comand(30, "+CCLK?", 0); //Запрос на текущее время 08/12/2025
+        // #ifndef NOSERIAL  
+        //   Serial.print("_logCallstring - ");        
+        //   Serial.println(_logCallstring);
+        // #endif            
+        app->_log->println(_tempString);     
+        app->add_in_queue_comand(30, "+CCLK?", 0); //Запрос на текущее время 08/12/2025                
     }
     //********* проверка отправки SMS ***********
     else if (_response.indexOf(F("+CMGS:")) > -1) {       // Пришло сообщение об отправке SMS

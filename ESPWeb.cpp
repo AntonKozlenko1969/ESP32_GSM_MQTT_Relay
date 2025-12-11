@@ -139,7 +139,18 @@ void ESPWebBase::_setup() {// Изменено
 #else
   if (! SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
     _log->println(F("Unable to mount SPIFFS!"));
+    _spiffsOK = false;
   }
+   else {
+     _spiffsOK = true;
+    _log->println(F("Success to mount SPIFFS!"));     
+  #ifndef NOSERIAL 
+    Serial.printf("Total space: %10u\n", SPIFFS.totalBytes());
+    Serial.printf("Used space: %10u\n", SPIFFS.usedBytes());    
+  #endif  
+    listDir("/", 0); // просмотреть SPIFFS и заполнить массив _callLogFile именами файлов с логами звонков
+   }
+
 #endif
 
   if (_ntpServer1.length() || _ntpServer2.length() || _ntpServer3.length()) {
@@ -1574,12 +1585,33 @@ String ESPWebBase::tagInput(const String& type, const String& name, const String
   return result;
 }
 
-String ESPWebBase::_CreateFile(uint8_t command_type) { 
-  String _resp = "";                            // Переменная для хранения результата
+bool ESPWebBase::_save_log_string() { 
+  #ifndef NOSERIAL    
+   String _temp = "Total space: ";
+   long UsSp = SPIFFS.totalBytes();
+  _temp += String(UsSp);
+   Serial.println(_temp);
+  // _log->println(_temp);
+
+  _temp = "Used space: ";
+   UsSp = SPIFFS.usedBytes();   
+  _temp += String(UsSp);
+  Serial.println(_temp);
+ // _log->println(_temp);
+ 
+    // Serial.printf("Total space: %10u\n", SPIFFS.totalBytes());
+    // Serial.printf("Used space: %10u\n", SPIFFS.usedBytes());    
+   #endif  
+   return true;
+}
+
+bool ESPWebBase::_CreateFile(uint8_t command_type) { 
+  bool _resp = false;                            // Переменная для хранения результата
   String file_nume="";
   if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
   else if (command_type == 2) file_nume=F("/Nomera2000.txt"); // создать текстовый из массива бинарных номеров  
   else if (command_type == 3) file_nume=F("/PhoneBook.bin"); // создать бинарный файл номеров
+  //else if (command_type == 4) file_nume="/" + String(_callLogFile[_activLogFile]); 
   // if (command_type == 6) { // reset SIM800
   //   uint32_t now = 0;
 
@@ -1621,12 +1653,48 @@ String ESPWebBase::_CreateFile(uint8_t command_type) {
 bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_type) {
   bool _resp=false;
   String file_nume; 
+  bool _newLogFile = false;
    if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
   else if (command_type == 2) file_nume=F("/Nomera2000.txt"); // создать текстовый из массива бинарных номеров
+  else if (command_type == 4) // добавить строку в лог звонков (если нет места в памяти, удалить первый файл и содать новый)
+     { if (_activLogFile < 0) // если нет ни одного файла логов звонков 25/12/11,13:18:22,69202891,,,
+         { _activLogFile = 0;
+           _callLogFile[_activLogFile][0]='L'; _callLogFile[_activLogFile][1]='o'; _callLogFile[_activLogFile][2]='g';
+           _callLogFile[_activLogFile][3]=char(_activLogFile + 48); _callLogFile[_activLogFile][4]='_';
+           _callLogFile[_activLogFile][5]=file_num_string[0];_callLogFile[_activLogFile][6]=file_num_string[1];
+           _callLogFile[_activLogFile][7]=file_num_string[3];_callLogFile[_activLogFile][8]=file_num_string[4];   
+           _callLogFile[_activLogFile][9]=carrYar[0];_callLogFile[_activLogFile][10]=carrYar[1];
+           _callLogFile[_activLogFile][11]=carrYar[2];_callLogFile[_activLogFile][12]=carrYar[3];                                    
+           //for (int8_t u=0;u<8;++u) _callLogFile[_activLogFile][5+u]=file_num_string[u];
+           _callLogFile[_activLogFile][5+8]='_';
+           for (int8_t u=0;u<8;++u) {
+             if (file_num_string[9+u] == ';')
+              _callLogFile[_activLogFile][14+u]=',';
+             else
+              _callLogFile[_activLogFile][14+u]=file_num_string[9+u];
+            }
+           _callLogFile[_activLogFile][22] = '.';_callLogFile[_activLogFile][23] = 'c';_callLogFile[_activLogFile][24] = 's';_callLogFile[_activLogFile][25] = 'v';
+           _callLogFile[_activLogFile][26] = NULL;
+           file_nume="/" + String(_callLogFile[_activLogFile]); 
+         #ifndef NOSERIAL 
+               Serial.println(file_nume);
+               Serial.println(file_num_string);               
+         #endif       
+         // временно для отладки названия файла    
+          // _activLogFile = -1; _callLogFile[0][0]=NULL; _resp=false; return _resp;
+          _newLogFile = true;
+          // if (!_CreateFile(4)) {_activLogFile = -1; _callLogFile[0][0]=NULL; _resp=false; return _resp;}
+         }
+       else {
+           file_nume="/" + String(_callLogFile[_activLogFile]);          
+       } 
+     }
+
   File PhoneFile =  SPIFFS.open(file_nume, FILE_APPEND);
     if (PhoneFile) {
+      if (_newLogFile ) PhoneFile.println(FPSTR(firstStringLog));
       PhoneFile.println(file_num_string);
-       PhoneFile.close(); _resp=true;
+      PhoneFile.close(); _resp=true;
       //  _log->print(F("append row - "));       
       //  _log->print(file_num_string);
       }  
@@ -1831,5 +1899,60 @@ bool ESPWebBase::saveFile(const String& Fname){
 
   return _ret;
 }
+
+void ESPWebBase::listDir(const char *dirname, uint8_t levels)
+{ String _fileName ="";
+     #ifndef NOSERIAL
+    Serial.printf("Listing directory: %s\n", dirname);
+     #endif
+    File root = SPIFFS.open(dirname);
+    if (!root)
+    {
+        #ifndef NOSERIAL     
+        Serial.println("Failed to open directory");
+        #endif        
+        return;
+    }
+    if (!root.isDirectory())
+    {
+         #ifndef NOSERIAL    
+        Serial.println("Not a directory");
+       #endif 
+        return;
+    }
+
+    File file = root.openNextFile();
+    while (file)
+    {
+        if (file.isDirectory())
+        {
+            #ifndef NOSERIAL     
+            Serial.print("  DIR : ");
+            Serial.println(file.name());
+            #endif
+            if (levels)
+            {
+                listDir(file.name(), levels - 1);
+            }
+        }
+        else
+        {  _fileName = file.name();
+           #ifndef NOSERIAL      
+            Serial.print("  FILE: ");
+            Serial.print(_fileName);
+            Serial.print("  SIZE: ");
+            Serial.println(file.size());
+           #endif 
+          if (_fileName[0]=='L' && _fileName[1]=='o' && _fileName[2]=='g') // Если в названии есть 'Log'
+            if (_fileName[3] >=48 && _fileName[3] <= 54) //если цифра от 0 до 6
+            { for (int8_t f=0; f<27; ++f ) _callLogFile[_fileName[3]-48][f] = _fileName[f];
+              if (_activLogFile < _fileName[3]-48) _activLogFile = _fileName[3]-48;
+            }
+        }
+        file = root.openNextFile();
+    }
+}
+
+
 
 const char ESPWebBase::_signEEPROM[4] PROGMEM = { '#', 'E', 'S', 'P' };

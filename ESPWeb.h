@@ -144,7 +144,7 @@ const char paramGSMMode[] PROGMEM = "gsmmode";
 const char paramGPRS_apn[] PROGMEM = "gprsapn"; 
 const char paramGPRS_user[] PROGMEM = "gprsuser"; 
 const char paramGPRS_pwd[] PROGMEM = "gprspwd";
-
+const char firstStringLog[] PROGMEM = "Date;Time;White List;SIM card;BIN file;WRONG number";
 const char paramWhiteList[] PROGMEM = "whiteList"; // Параметр белых номеров 
 const int total_bin_num = 2000; //2000 имеющихся в SPIFFS телефонной книге номеров
 const uint16_t maxStringLen = 32; // Максимальная длина строковых параметров в Web-интерфейсе
@@ -156,9 +156,13 @@ public:
   virtual void _loop(); // Метод должен быть вызван из функции loop() скетча // Изменено
 
   virtual void reboot(); // Перезагрузка модуля
-  virtual String _CreateFile(uint8_t command_type); 
-  virtual bool writeTXTstring(const String& file_num_string, uint8_t command_type); // добавить строку в указанный 1/2 текстовый файл
+   // сождать файл 1(PhoneBook.txt)/2(Nomera2000.txt)/3(PhoneBook.bin)/4(LogX_) текстовый файл  
+  virtual bool _CreateFile(uint8_t command_type); 
+   // добавить строку в указанный 1(PhoneBook.txt)/2(Nomera2000.txt)/3(PhoneBook.bin)/4(LogX_) текстовый файл
+  virtual bool writeTXTstring(const String& file_num_string, uint8_t command_type);
   virtual bool saveFile(const String& Fname); //процедура сохранения нового BIN файла с номерами телефонов в SPIFFS 
+
+  virtual bool _save_log_string(); 
 
   int64_t phones_on_sim[total_bin_num]; //+ 2000 имеющихся в телефонной книге номеров
   virtual void readBINfile(); // прочитать двоичный файл и заполить номерами массив
@@ -185,6 +189,13 @@ public:
   String _gprspwd;
 
   StringLog* _log; // Логи скетча 30/05/2025
+
+  // Переменные для системы логирования поступивших звонков в файлах SPIFFS
+  bool _spiffsOK = false; // статус инициализации SPIFFS
+  char _callLogFile[7][27]; // Массив имен файлов логов звонков хранящихся в SPIFFS шаблон имени LogX_25/12/11_10:17:44.csv (X от 0 до 6)
+  int8_t _activLogFile=-1; //номер из массива активного файла для добавления новых строк. -1 - ни один файл еще не создан
+  String carrYar =""; //текущий год считанный из данных GSM
+  virtual void listDir(const char *dirname, uint8_t levels);
 
 protected:
   virtual void setupExtra(); // Дополнительный код инициализации
