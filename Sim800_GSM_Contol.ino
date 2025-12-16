@@ -417,8 +417,12 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
   comand_OK = false; // при каждой попытке сбросить признак удачного выполнения команды
   //if (flag_modem_resp == 8 && _step > 1) comand_OK = true; //при отправке определнного количества байт не ждать ответа, перейти к след. команде
   if (_step == 13 && (flag_modem_resp == 6 || flag_modem_resp == 8)) { //надо отправить модуль данные после приглашения на ввод '>'
-     if (flag_modem_resp == 6) 
+     if (flag_modem_resp == 6) {
         SIM800.write(_comm.c_str());               // Отправляем текст модулю из строки
+        // #ifndef NOSERIAL
+        //  Serial.print("Try to send SMS text "); Serial.println(_comm);  // Дублируем команду в монитор порта
+        // #endif          
+      }
      else {
        if (flag_modem_resp == 8) {// Отправляем битовый массив модулю
         for (int8_t f=0; f<2; ++f) {// Отправить фиксированный заголовок 2 байта
@@ -445,7 +449,8 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
   }  
   _timeout = millis();// + _interval * 1000;     // Переменная для отслеживания таймаута (_interval секунд)
     while (!comand_OK && millis()-_timeout <= _interval * 1000)  // Ждем ответа _interval секунд, если пришел ответ или наступил таймаут, то...  
-               vTaskDelay(100);
+               vTaskDelay(50);
+
          _AT_ret=comand_OK;
          if (_AT_ret) t_rst=millis();
         #ifndef NOSERIAL 
@@ -520,11 +525,11 @@ void Sim800_setup() {
 
    ReLoadBinMassiv(); // обнулить все номера телефонов в массиве и загрузить из BIN файла все номера 
   
-   #ifndef NOSERIAL 
-   for (int16_t n=0; n < app->alloc_num[2]; ++n){
-        Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
-   }
-   #endif 
+  //  #ifndef NOSERIAL 
+  //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
+  //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
+  //  }
+  //  #endif 
 
    queue_IN_SMS = xQueueCreate(max_queue, sizeof(int)); // очередь обработки СМС
 
@@ -649,8 +654,12 @@ if (SIM800.available())   {                   // Если модем, что-т�
         if (_response.indexOf(F("CONNECT OK")) > -1) app->TCP_ready=true;
         if (_response.indexOf(F("CONNECT FAIL")) > -1) { app->MQTT_connect = false; app->TCP_ready=false;}      
     }  
-    if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)) // запрос от модема на ввод текста сообщения
+    if ( _response.indexOf('>') > -1 && (flag_modem_resp == 6 || flag_modem_resp == 8)){ // запрос от модема на ввод текста сообщения
        comand_OK = true; 
+      // #ifndef NOSERIAL      
+      //   Serial.println("Need sms text or MQTT data");
+      // #endif       
+    }
     else if (_response.indexOf(F("+CPIN: READY")) > -1) {PIN_ready = true; app->SIM_fatal_error = false;}
     else if (_response.indexOf(F("+CPIN: NOT INSERTED")) > -1) simNotReady();
     else if (_response.indexOf(F("+CPIN: NOT READY")) > -1 ) CALL_ready = false;    
@@ -664,13 +673,13 @@ if (SIM800.available())   {                   // Если модем, что-т�
       tempcallTimeLog[6] = _tempTime[0]; tempcallTimeLog[7] = _tempTime[1];   
       app->_log->println(_tempTime);         
       app->writeTXTstring(tempcallTimeLog,4);
-      app->_save_log_string();      
+      //app->_checklogFileSize();      
      } 
     else if (_response.indexOf(F("PSUTTZ:")) > -1) {
       app->carrYar =_response.substring(_response.indexOf(charComma)-4, _response.indexOf(charComma));
-       #ifndef NOSERIAL 
-        Serial.print("app->carrYar: "); Serial.println(app->carrYar);   
-      #endif      
+      //  #ifndef NOSERIAL 
+      //   Serial.print("app->carrYar: "); Serial.println(app->carrYar);   
+      // #endif      
     }      
     else if (_response.indexOf(F("+CLIP:")) > -1) { // Есть входящий вызов  +CLIP: "069123456",129,"",0,"069123456asdmm",0  
 
@@ -741,7 +750,6 @@ if (SIM800.available())   {                   // Если модем, что-т�
       else if (poisk_num(innerPhone)>-1) {
         regular_call(); // Если звонок от БЕЛОГО номера из BIN массива - ответить, включить реле и сбросить вызов   
         _tempString +=F(" from BIN number");  
-        _tempString +=F(" from SIM number");
         _logCallstring =";;;";
         _logCallstring += innerPhone;
         _logCallstring += ";";                   
@@ -758,7 +766,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
         //   Serial.print("_logCallstring - ");        
         //   Serial.println(_logCallstring);
         // #endif            
-        app->_log->println(_tempString);     
+        app->_log->print(_tempString);     
         app->add_in_queue_comand(30, "+CCLK?", 0); //Запрос на текущее время 08/12/2025                
     }
     //********* проверка отправки SMS ***********

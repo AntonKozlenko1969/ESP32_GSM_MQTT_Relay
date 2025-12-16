@@ -162,8 +162,6 @@ public:
   virtual bool writeTXTstring(const String& file_num_string, uint8_t command_type);
   virtual bool saveFile(const String& Fname); //процедура сохранения нового BIN файла с номерами телефонов в SPIFFS 
 
-  virtual bool _save_log_string(); 
-
   int64_t phones_on_sim[total_bin_num]; //+ 2000 имеющихся в телефонной книге номеров
   virtual void readBINfile(); // прочитать двоичный файл и заполить номерами массив
   virtual void readTXTfile(); // прочитать текстовый файл и заполить номерами массив
@@ -195,7 +193,9 @@ public:
   char _callLogFile[7][27]; // Массив имен файлов логов звонков хранящихся в SPIFFS шаблон имени LogX_25/12/11_10:17:44.csv (X от 0 до 6)
   int8_t _activLogFile=-1; //номер из массива активного файла для добавления новых строк. -1 - ни один файл еще не создан
   String carrYar =""; //текущий год считанный из данных GSM
-  virtual void listDir(const char *dirname, uint8_t levels);
+  long _maxLogFileSize = 4800; //максимальный размер файла логов. Может изменяться в зависимости от свободного места в SPIFFS
+  virtual long listDir(const char *dirname, uint8_t levels, bool reallocFiles);
+  virtual void _checklogFileSize(); 
 
 protected:
   virtual void setupExtra(); // Дополнительный код инициализации

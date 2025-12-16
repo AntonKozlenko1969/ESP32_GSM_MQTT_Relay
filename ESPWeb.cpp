@@ -148,7 +148,10 @@ void ESPWebBase::_setup() {// Изменено
     Serial.printf("Total space: %10u\n", SPIFFS.totalBytes());
     Serial.printf("Used space: %10u\n", SPIFFS.usedBytes());    
   #endif  
-    listDir("/", 0); // просмотреть SPIFFS и заполнить массив _callLogFile именами файлов с логами звонков
+   //очистить массив названий файлов логов
+   for (int8_t f=0; f<7; ++f ) _callLogFile[f][0] = NULL;  
+   // выполнить проверку максимального размера файла архива (с учетом уже имеющихся файлов)
+    listDir("/", 0, true); // просмотреть SPIFFS и заполнить массив _callLogFile именами файлов с логами звонков
    }
 
 #endif
@@ -779,6 +782,13 @@ void ESPWebBase::handleFileDelete() {
   if (! SPIFFS.exists(path))
     return httpServer->send(404, FPSTR(textPlain), FPSTR(fileNotFound));
   SPIFFS.remove(path);
+  //12/12/25 Если удален файл с активным логом - исправить массив и ссылку на этот файл
+  if (path[0]=='/' && path[1]=='L' && path[2]=='o' && path[3]=='g') // Если в названии есть 'Log'
+            if (path[4] >=48 && path[4] <= 54) //если цифра от 0 до 6  
+              _callLogFile[path[4]-48][0] = NULL;             
+             if (_activLogFile == path[4]-48) {
+              _activLogFile = -1;              
+              }
   httpServer->send(200, FPSTR(textPlain), strEmpty);
   path = String();
 }
@@ -1585,24 +1595,41 @@ String ESPWebBase::tagInput(const String& type, const String& name, const String
   return result;
 }
 
-bool ESPWebBase::_save_log_string() { 
+void ESPWebBase::_checklogFileSize() { 
+  long _totalSp = SPIFFS.totalBytes()-90000;
+  long _usedSp =  SPIFFS.usedBytes(); 
+  long _allocLogSp = listDir("/", 0, false); // занятое место уже имеющимися файлами логов
+      // if ((_totalSp-_usedSp)/7 < _maxLogFileSize)
+  
+  if ((_totalSp-_usedSp) < _maxLogFileSize) _maxLogFileSize =_totalSp-_usedSp;
+  else _maxLogFileSize = 4800;
+  //_maxLogFileSize = (_totalSp - (_usedSp-_allocLogSp))/7;
+
   #ifndef NOSERIAL    
    String _temp = "Total space: ";
-   long UsSp = SPIFFS.totalBytes();
-  _temp += String(UsSp);
+  _temp += String(_totalSp);
    Serial.println(_temp);
   // _log->println(_temp);
 
-  _temp = "Used space: ";
-   UsSp = SPIFFS.usedBytes();   
-  _temp += String(UsSp);
+  _temp = "Used Total space: ";
+  _temp += String(_usedSp);
   Serial.println(_temp);
  // _log->println(_temp);
- 
+
+  _temp = "Used in Log space: ";
+  _temp += String(_allocLogSp);
+  Serial.println(_temp); 
     // Serial.printf("Total space: %10u\n", SPIFFS.totalBytes());
-    // Serial.printf("Used space: %10u\n", SPIFFS.usedBytes());    
+    // Serial.printf("Used space: %10u\n", SPIFFS.usedBytes()); 
+    
+  _temp = "Free space: ";
+  _temp += String(_totalSp-_usedSp);
+  Serial.println(_temp);     
+
+  _temp = "_maxLogFileSize: ";
+  _temp += String(_maxLogFileSize);
+  Serial.println(_temp); 
    #endif  
-   return true;
 }
 
 bool ESPWebBase::_CreateFile(uint8_t command_type) { 
@@ -1611,7 +1638,6 @@ bool ESPWebBase::_CreateFile(uint8_t command_type) {
   if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
   else if (command_type == 2) file_nume=F("/Nomera2000.txt"); // создать текстовый из массива бинарных номеров  
   else if (command_type == 3) file_nume=F("/PhoneBook.bin"); // создать бинарный файл номеров
-  //else if (command_type == 4) file_nume="/" + String(_callLogFile[_activLogFile]); 
   // if (command_type == 6) { // reset SIM800
   //   uint32_t now = 0;
 
@@ -1654,11 +1680,97 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
   bool _resp=false;
   String file_nume; 
   bool _newLogFile = false;
+  File PhoneFile;
+
    if (command_type == 1) file_nume=F("/PhoneBook.txt"); // создать файл с текстом номеров
   else if (command_type == 2) file_nume=F("/Nomera2000.txt"); // создать текстовый из массива бинарных номеров
-  else if (command_type == 4) // добавить строку в лог звонков (если нет места в памяти, удалить первый файл и содать новый)
-     { if (_activLogFile < 0) // если нет ни одного файла логов звонков 25/12/11,13:18:22,69202891,,,
-         { _activLogFile = 0;
+  else if (command_type == 4) // добавить строку в лог звонков (если нет места в памяти, удалить первый файл и создать новый)
+     { //_checklogFileSize(); // проверить возможный размер одного Log файла _maxLogFileSize
+        if (_activLogFile > 0) {
+          file_nume="/" + String(_callLogFile[_activLogFile]); 
+          PhoneFile =  SPIFFS.open(file_nume, FILE_READ);
+          if (!PhoneFile) {
+           _log->println(F("- failed to open TXT file")); 
+              return false;
+         }   
+         if (PhoneFile.size() + file_num_string.length() >= _maxLogFileSize) _activLogFile = -1;
+         PhoneFile.close();
+        }  
+
+     //Проверить наличие пустого названия среди семи элементов массива. Если все элементы заняты - удалить нулевой
+       for (int8_t f=0; f<7; ++f ) 
+          if (_callLogFile[f][0] == NULL) {_resp = true; break;}
+       if ((!_resp && _activLogFile < 0)) //если уже все названия в массиве заняты - надо удалить самый старый файл и создать новый пустой
+         { if (SPIFFS.remove("/" + String(_callLogFile[0])))
+           {_callLogFile[0][0] = NULL;
+            if (_activLogFile >= 0) _activLogFile = -1;             
+                #ifndef NOSERIAL 
+                 Serial.println("OK REMOVE SPIFFS Log0");              
+                #endif  
+             _log->println(F("OK REMOVE SPIFFS Log0"));                   
+           }
+           else 
+           {  
+                #ifndef NOSERIAL 
+                 Serial.println("ERROR REMOVE SPIFFS Log0");              
+                #endif  
+             _log->println(F("ERROR REMOVE SPIFFS Log0"));                  
+             return false;   
+           }
+         }
+
+        //проверить что нет пустых мест в массиве файлов логов после удаления файлов через WEB
+       int8_t _isnull = -1; //индекс массива файлов логов с первым найденым значением NULL
+       int8_t _file_found = -1; // индекс массива с первым найденым не NULL значением имени файла
+       bool _sort = false; //признак что надо передвинуть файл выше по номерам и переименовать т.к. перед ним есть пустое значение
+       do {
+        _sort = false; _isnull = -1; _file_found = -1;
+        for (int8_t f=0; f<7; ++f ) {
+           if (_callLogFile[f][0] != NULL && _isnull < 0)  _file_found = f;  
+           else if (_callLogFile[f][0] != NULL && _isnull >= 0) { _file_found = f; _sort = true; break;}
+           else if (_callLogFile[f][0] == NULL) _isnull = f;
+        } 
+        if (_sort) //требуется сортировка передвинуть индекс _file_found выше на место пустого индекса _isnull
+         { String oldFile ="/" + String(_callLogFile[_file_found]); String newFile=oldFile;
+           newFile[4] = _isnull + 48; 
+            // #ifndef NOSERIAL 
+            //    Serial.print("oldFile - "); Serial.println(oldFile);
+            //    Serial.print("newFile - "); Serial.println(newFile);               
+            //  #endif               
+           if (SPIFFS.rename(oldFile, newFile)) {
+             for (int h=0; h<newFile.length();++h) _callLogFile[_isnull][h] = newFile[h+1];
+             _callLogFile[_file_found][0] = NULL;             
+             if (_activLogFile >= 0 && _file_found == _activLogFile) _activLogFile = _isnull; //если уже есть активный файл сменить его индекс после переименования
+                // #ifndef NOSERIAL 
+                //  Serial.println("OK RENAME SPIFFS");              
+                // #endif       
+             _log->println(F("OK RENAME LOF FILE"));                       
+           }
+           else{ 
+            // #ifndef NOSERIAL 
+            //  Serial.println("ERROR RENAME SPIFFS");             
+            // #endif   
+            _log->println(F("ERROR RENAME LOF FILE"));            
+            return false;                 
+          }
+         }
+
+       } while (_sort);//выполнять цикл, пока сортировка требуется - не будет пустых значений перед заполненными (сдвинуть все значимые индексы вверх с перименованием) 
+
+       if (_activLogFile < 0) // если пока нет активного файла логов звонков 11/12/25,13:18:22,69202891,,,
+         { 
+         // установить признак что надо создать файл и надо добавить заголовок таблицы
+          _newLogFile = true;           
+           for (int8_t f=0; f<7; ++f ) 
+              if (_callLogFile[f][0] == NULL) { _activLogFile = f; _resp = true; break;}
+         }
+       else { // Если активный файл уже используется
+           _resp = true;       
+         } 
+
+       if (_newLogFile && _resp) //возможно создание нового файла и его номер уже определен
+       {
+         // Сформировать имя файла в массиве имен из мах 7 файлов из номера лога даты и времени поступившего звонка
            _callLogFile[_activLogFile][0]='L'; _callLogFile[_activLogFile][1]='o'; _callLogFile[_activLogFile][2]='g';
            _callLogFile[_activLogFile][3]=char(_activLogFile + 48); _callLogFile[_activLogFile][4]='_';
            _callLogFile[_activLogFile][5]=file_num_string[0];_callLogFile[_activLogFile][6]=file_num_string[1];
@@ -1675,29 +1787,39 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
             }
            _callLogFile[_activLogFile][22] = '.';_callLogFile[_activLogFile][23] = 'c';_callLogFile[_activLogFile][24] = 's';_callLogFile[_activLogFile][25] = 'v';
            _callLogFile[_activLogFile][26] = NULL;
-           file_nume="/" + String(_callLogFile[_activLogFile]); 
-         #ifndef NOSERIAL 
-               Serial.println(file_nume);
-               Serial.println(file_num_string);               
-         #endif       
-         // временно для отладки названия файла    
-          // _activLogFile = -1; _callLogFile[0][0]=NULL; _resp=false; return _resp;
-          _newLogFile = true;
-          // if (!_CreateFile(4)) {_activLogFile = -1; _callLogFile[0][0]=NULL; _resp=false; return _resp;}
-         }
-       else {
-           file_nume="/" + String(_callLogFile[_activLogFile]);          
-       } 
+        //  #ifndef NOSERIAL 
+        //        Serial.println(file_nume);
+        //        Serial.println(file_num_string);               
+        //  #endif  
+          //file_nume="/" + String(_callLogFile[_activLogFile]); 
+       }
+         //else if (!_newLogFile && _resp) // не надо создавать новый файл, добавить запись в текущий активный
+            file_nume="/" + String(_callLogFile[_activLogFile]);            
      }
 
-  File PhoneFile =  SPIFFS.open(file_nume, FILE_APPEND);
+   PhoneFile =  SPIFFS.open(file_nume, FILE_APPEND);
     if (PhoneFile) {
-      if (_newLogFile ) PhoneFile.println(FPSTR(firstStringLog));
-      PhoneFile.println(file_num_string);
+      bool _errorSave=false;
+      if (_newLogFile ) _errorSave=PhoneFile.println(FPSTR(firstStringLog));
+      _errorSave=PhoneFile.println(file_num_string);
+      if (!_errorSave) {
+         _log->println(F("ERROR save LOG STRING"));
+        //   #ifndef NOSERIAL 
+        //        Serial.println("ERROR save STRING");               
+        //  #endif         
+      }
       PhoneFile.close(); _resp=true;
       //  _log->print(F("append row - "));       
       //  _log->print(file_num_string);
       }  
+    else {
+      _log->println(F("ERROR create NEW LOG FILE")); 
+        //   #ifndef NOSERIAL 
+        //        Serial.println("ERROR create NEW FILE");               
+        //  #endif            
+      _resp=false;
+      }
+
   return  _resp;
 }
 
@@ -1900,25 +2022,26 @@ bool ESPWebBase::saveFile(const String& Fname){
   return _ret;
 }
 
-void ESPWebBase::listDir(const char *dirname, uint8_t levels)
-{ String _fileName ="";
+long ESPWebBase::listDir(const char *dirname, uint8_t levels, bool reallocFiles)
+{ long _ret=0;
+   String _fileName ="";
      #ifndef NOSERIAL
     Serial.printf("Listing directory: %s\n", dirname);
      #endif
     File root = SPIFFS.open(dirname);
     if (!root)
     {
-        #ifndef NOSERIAL     
+      #ifndef NOSERIAL     
         Serial.println("Failed to open directory");
-        #endif        
-        return;
+      #endif        
+        return _ret;
     }
     if (!root.isDirectory())
     {
-         #ifndef NOSERIAL    
+       #ifndef NOSERIAL    
         Serial.println("Not a directory");
        #endif 
-        return;
+        return _ret;
     }
 
     File file = root.openNextFile();
@@ -1926,13 +2049,13 @@ void ESPWebBase::listDir(const char *dirname, uint8_t levels)
     {
         if (file.isDirectory())
         {
-            #ifndef NOSERIAL     
+          #ifndef NOSERIAL     
             Serial.print("  DIR : ");
             Serial.println(file.name());
-            #endif
+          #endif
             if (levels)
             {
-                listDir(file.name(), levels - 1);
+                listDir(file.name(), levels - 1, false);
             }
         }
         else
@@ -1945,12 +2068,16 @@ void ESPWebBase::listDir(const char *dirname, uint8_t levels)
            #endif 
           if (_fileName[0]=='L' && _fileName[1]=='o' && _fileName[2]=='g') // Если в названии есть 'Log'
             if (_fileName[3] >=48 && _fileName[3] <= 54) //если цифра от 0 до 6
-            { for (int8_t f=0; f<27; ++f ) _callLogFile[_fileName[3]-48][f] = _fileName[f];
-              if (_activLogFile < _fileName[3]-48) _activLogFile = _fileName[3]-48;
+            { _ret += file.size(); // учесть размер найденного файла лога
+              if (reallocFiles)// заполнить массив имеющимися названиями файлов логов
+                {for (int8_t f=0; f<27; ++f ) _callLogFile[_fileName[3]-48][f] = _fileName[f];
+                // if (_activLogFile < _fileName[3]-48) _activLogFile = _fileName[3]-48;
+                }
             }
         }
         file = root.openNextFile();
     }
+  return _ret;
 }
 
 
