@@ -14,6 +14,8 @@
 //uint8_t command_type =0; //тип отправленной в модем команды 1 - считать весь список телефонов с СИМ
 
 #define DIGIT_IN_PHONENAMBER 8
+#define LOG_FILE_SIZE  5013 // размер файла логов в байтах итнииальный размер 84 одна запись +31
+#define LOG_FILE_COUNT  10 // количество файлов логов НЕ БОЛЕЕ 10
 
 // Односимвольные константы
 const char charCR = '\r';
@@ -190,10 +192,10 @@ public:
 
   // Переменные для системы логирования поступивших звонков в файлах SPIFFS
   bool _spiffsOK = false; // статус инициализации SPIFFS
-  char _callLogFile[7][27]; // Массив имен файлов логов звонков хранящихся в SPIFFS шаблон имени LogX_25/12/11_10:17:44.csv (X от 0 до 6)
+  char _callLogFile[LOG_FILE_COUNT][27]; // Массив имен файлов логов звонков хранящихся в SPIFFS шаблон имени LogX_25/12/11_10:17:44.csv (X от 0 до 6)
   int8_t _activLogFile=-1; //номер из массива активного файла для добавления новых строк. -1 - ни один файл еще не создан
   String carrYar =""; //текущий год считанный из данных GSM
-  long _maxLogFileSize = 4800; //максимальный размер файла логов. Может изменяться в зависимости от свободного места в SPIFFS
+  long _maxLogFileSize = LOG_FILE_SIZE; //максимальный размер файла логов. Может изменяться в зависимости от свободного места в SPIFFS
   virtual long listDir(const char *dirname, uint8_t levels, bool reallocFiles);
   virtual void _checklogFileSize(); 
 
