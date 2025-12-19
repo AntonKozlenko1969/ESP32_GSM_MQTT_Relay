@@ -419,9 +419,14 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
   if (_step == 13 && (flag_modem_resp == 6 || flag_modem_resp == 8)) { //надо отправить модуль данные после приглашения на ввод '>'
      if (flag_modem_resp == 6) {
         SIM800.write(_comm.c_str());               // Отправляем текст модулю из строки
-        // #ifndef NOSERIAL
-        //  Serial.print("Try to send SMS text "); Serial.println(_comm);  // Дублируем команду в монитор порта
-        // #endif          
+         #ifndef NOSERIAL
+        //  Serial.print("Try to send SMS text "); 
+           Serial.println(_comm);  // Дублируем команду в монитор порта
+          //  for (int i=0;i<_comm.length();++i){
+          //    Serial.print(int(_comm[i]));Serial.print(" ");
+          //  } 
+          //  Serial.println("");
+         #endif          
       }
      else {
        if (flag_modem_resp == 8) {// Отправляем битовый массив модулю
@@ -831,9 +836,9 @@ if (SIM800.available())   {                   // Если модем, что-т�
         textnumber =  _response.substring(firstIndex+2, firstIndex+2+DIGIT_IN_PHONENAMBER);
         textnumbercomment =_response.substring(_response.lastIndexOf(',')+2, _response.lastIndexOf('\"'));
            #ifndef NOSERIAL     
-             Serial.print("File String +CPBF: index= "); Serial.print(phonen_index); 
-             Serial.print(" ; number= "); Serial.print(textnumber);                          
-             Serial.print(" ; comment= "); Serial.print(textnumbercomment); 
+            //  Serial.print("File String +CPBF: index= "); Serial.print(phonen_index); 
+            //  Serial.print(" ; number= "); Serial.print(textnumber);                          
+            //  Serial.print(" ; comment= "); Serial.print(textnumbercomment); 
              Serial.print(" flag_modem_resp = "); Serial.println(flag_modem_resp);    
              app->_log->print("File String +CPBF: index= "); app->_log->print(phonen_index); 
              app->_log->print(" ; number= "); app->_log->print(textnumber);                          
@@ -867,7 +872,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
             }     
 
            #ifndef NOSERIAL     
-             Serial.print("numer text= "); Serial.println(_response);
+             //Serial.print("numer text= "); Serial.println(_response);
              app->_log->print("numer text= "); app->_log->println(_response);
            #endif                                  
        }    
@@ -1171,10 +1176,10 @@ void EraseCurrSMS(){
      if (SMS_currentIndex != 0) { // удалить текущую SMS, чтобы не забивали память модуля  
         String  temp_string = "+CMGD=" + String(SMS_currentIndex) + ",0";
           app->add_in_queue_comand(30, temp_string.c_str(), 0);
-        #ifndef NOSERIAL        
-          app->_log->println("Message was sent. OK ");
-          app->_log->println(temp_string);          
-        #endif          
+        // #ifndef NOSERIAL        
+        //   app->_log->println("Message was sent. OK ");
+        //   app->_log->println(temp_string);          
+        // #endif          
           SMS_currentIndex=0;
           num_text_comanda = -1; //номер команды из СМС в массиве команд comand_nume
       }
@@ -1214,10 +1219,10 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   // Сначала выясняем команду (первые три символа) для дальнейших действий
   String comment = msg.substring(0,firstIndex);  // команда из СМС  
           #ifndef NOSERIAL 
-             Serial.print("*** mess - "); 
-             Serial.print(msg);         
-             Serial.print(" SMS Comanda - "); 
-             Serial.println(comment);
+            //  Serial.print("*** mess - "); 
+            //  Serial.print(msg);         
+            //  Serial.print(" SMS Comanda - "); 
+            //  Serial.println(comment);
              app->_log->print("*** mess - "); 
              app->_log->print(msg);   
              app->_log->print(" SMS Comanda - ");                         
@@ -1599,7 +1604,7 @@ void sendSMS(const String& phone, const String& message){
   _tempSTR += charQuote; 
   _tempSTR += charCR; // F("\r"); //*********!!!!!!!!!!!!!!******************
   _tempSTR += message;
-  _tempSTR += (String)((char)26);
+  _tempSTR += "\032"; //(String)((char)26);
    #ifndef NOSERIAL 
     Serial.println("SMS out: " + _tempSTR);
   #endif  

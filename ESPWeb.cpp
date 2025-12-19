@@ -1704,16 +1704,16 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
          { if (SPIFFS.remove("/" + String(_callLogFile[0])))
            {_callLogFile[0][0] = NULL;
             if (_activLogFile >= 0) _activLogFile = -1;             
-                #ifndef NOSERIAL 
-                 Serial.println("OK REMOVE SPIFFS Log0");              
-                #endif  
+                // #ifndef NOSERIAL 
+                //  Serial.println("OK REMOVE SPIFFS Log0");              
+                // #endif  
              _log->println(F("OK REMOVE SPIFFS Log0"));                   
            }
            else 
            {  
-                #ifndef NOSERIAL 
-                 Serial.println("ERROR REMOVE SPIFFS Log0");              
-                #endif  
+                // #ifndef NOSERIAL 
+                //  Serial.println("ERROR REMOVE SPIFFS Log0");              
+                // #endif  
              _log->println(F("ERROR REMOVE SPIFFS Log0"));                  
              return false;   
            }
@@ -1833,9 +1833,9 @@ void ESPWebBase::readTXTCSVfile() {
    File PhoneFile =  SPIFFS.open(file_nume, FILE_READ);
  if (!PhoneFile) { 
    _log->println(F("- failed to open CSV file")); 
-      #ifndef NOSERIAL 
-       Serial.println("- failed to open CSV file");
-      #endif
+      // #ifndef NOSERIAL 
+      //  Serial.println("- failed to open CSV file");
+      // #endif
    return;
   }
        #ifndef NOSERIAL 
@@ -2071,7 +2071,7 @@ long ESPWebBase::listDir(const char *dirname, uint8_t levels, bool reallocFiles)
             { _ret += file.size(); // учесть размер найденного файла лога
               if (reallocFiles)// заполнить массив имеющимися названиями файлов логов
                 {for (int8_t f=0; f<27; ++f ) _callLogFile[_fileName[3]-48][f] = _fileName[f];
-                // if (_activLogFile < _fileName[3]-48) _activLogFile = _fileName[3]-48;
+                  if (_activLogFile < _fileName[3]-48) _activLogFile = _fileName[3]-48;
                 }
             }
         }
