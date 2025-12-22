@@ -1907,7 +1907,7 @@ void ESPWebBase::readBINfile() {
       #endif
  }
 
-void ESPWebBase::readTXTfile() {
+int ESPWebBase::readTXTfile() {
   String file_nume=F("/PhoneBookNew.txt");
   String phone_index;
   String phone_num;
@@ -1918,7 +1918,7 @@ void ESPWebBase::readTXTfile() {
   if (!PhoneFile) { 
    _log->println(F("- failed to open TXT file")); 
     //Serial.println("- failed to open TXT file");
-   return;
+   return v;
   }
   else{
      String buffer;
@@ -1990,6 +1990,8 @@ void ESPWebBase::readTXTfile() {
 
       PhoneFile.close();
      }
+
+   return v;
 }
 
 // процедура сохранения нового BIN файла с номерами телефонов в SPIFFS

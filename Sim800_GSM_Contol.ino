@@ -1529,9 +1529,19 @@ void made_action(int _command, int _answer)
   }               
   else if (_command == 9) //F("Res"))  //Restore сохранить все номера из файла PhoneBookNew.txt в СИМ карту
    { clear_arrey();  // чистим массив номеров и коментариев
-      app->readTXTfile();   
-      app->add_in_queue_comand(4,"",0);// 4 - скопировать с файла PhoneBookNew.txt все номера на СИМ  
-      return;      
+     int _newallocNum =0;
+      _newallocNum = app->readTXTfile();   
+      if (_newallocNum>0) {
+       app->add_in_queue_comand(4,"",0);// 4 - скопировать с файла PhoneBookNew.txt все номера на СИМ   
+       app->add_in_queue_comand(30,"+CCALR?;+CPBS?",0);       
+        temp_respons = F("Read from TXT file ");
+        temp_respons +=String(_newallocNum);
+        temp_respons += F(" new Phone Numbers");      
+      }
+      else {
+       temp_respons = F("NOT read Numbers from TXT file");        
+      }
+      //return;      
   } 
   else if (_command > 9 && _command < 15) // F("R11")) { // Управлять реле через SMS  
     { if (app->relayPin[_command-10] != -1) {
@@ -1608,7 +1618,10 @@ void sendSMS(const String& phone, const String& message){
    #ifndef NOSERIAL 
     Serial.println("SMS out: " + _tempSTR);
   #endif  
-   // 20 - признак отправки СМС 
+  // перед отправкой СМС модему надо дать паузу после предидущих операций
+    app->add_in_queue_comand(11,"",0);  // Подать тестовую команду 
+    vTaskDelay(1555);
+   // 20 - признак отправки СМС     
     app->add_in_queue_comand(20,_tempSTR.c_str(),0);
 }
 
