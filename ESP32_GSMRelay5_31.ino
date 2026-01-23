@@ -1371,12 +1371,6 @@ else\n");
  script += F("if (data.");
  script += FPSTR(jsonMQTTConnected);
  script += F(" && !data.relay4) {\n"); 
- for (int8_t id = 0; id < maxRelays; id++) {
-    script += FPSTR(getElementById);
-    script += FPSTR(jsonRelay);
-    script += String(id);
-    script += FPSTR(setDisabled);
-  }
   script += F("for (var i=0; i<inputEl.length; i++) ");
   script += F("inputEl[i].setAttribute('disabled','');\n");
   script += F("}\n");  
@@ -1384,12 +1378,6 @@ else\n");
  script += F("if (!data.");
  script += FPSTR(jsonMQTTConnected);
  script += F(" || data.relay4) {\n"); 
- for (int8_t id = 0; id < maxRelays; id++) {
-    script += FPSTR(getElementById);
-    script += FPSTR(jsonRelay);
-    script += String(id);
-    script += FPSTR(removeDisabled);
-  } 
  script += F("for (i=0; i<inputEl.length; i++) ");
  script += F("inputEl[i].removeAttribute('disabled');\n");
  script += F("}\n");  
