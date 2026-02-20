@@ -1587,6 +1587,8 @@ String ESPWebBase::tagInput(const String& type, const String& name, const String
   }
   result += charSpace;
   result += extra;
+  if (value != "Log View") 
+    if (value != "Back")  
   if (! local_WEB_access) result += FPSTR(" disabled");  // блокировать изменение, если доступ к WEB интерфейсу закрыт  
    //для выбора точка доступа / инфраструктура закрыть выбор
   else if (name.indexOf(FPSTR(paramApMode)) > -1) result += FPSTR(" disabled"); // этот выбор происходит автоматом  

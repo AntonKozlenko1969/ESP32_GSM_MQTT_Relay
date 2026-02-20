@@ -1370,14 +1370,19 @@ else\n");
   script += F("var inputEl = document.getElementsByTagName('input');\n");
  script += F("if (data.");
  script += FPSTR(jsonMQTTConnected);
- script += F(" && !data.relay4) {\n"); 
-  script += F("for (var i=0; i<inputEl.length; i++) ");
+  script += F(" && !data.relay");
+  script += String((maxRelays-1)); 
+  script += F(") {\n"); // 23/01/2026
+  script += F("for (var i=0; i<inputEl.length; i++)/n ");
+  script += F("if(inputEl[i].value != 'Log View') if(inputEl[i].value != 'Back')\n");  
   script += F("inputEl[i].setAttribute('disabled','');\n");
   script += F("}\n");  
 
  script += F("if (!data.");
  script += FPSTR(jsonMQTTConnected);
- script += F(" || data.relay4) {\n"); 
+ script += F(" || data.relay");
+ script += String((maxRelays-1));
+ script += F(") {\n"); // 23/01/2026
  script += F("for (i=0; i<inputEl.length; i++) ");
  script += F("inputEl[i].removeAttribute('disabled');\n");
  script += F("}\n");  
