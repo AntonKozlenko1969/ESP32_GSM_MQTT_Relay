@@ -38,6 +38,15 @@ const char overSSID[] PROGMEM = "ESP_GSMRelay_"; // Префикс имени т
 const char overMQTTClient[] PROGMEM = "ESP_GSMRelay"; // Префикс имени MQTT-клиента по умолчанию
 
 const int8_t defRelayPin[maxRelays]={2,12,14,25,13}; // Пин реле по умолчанию (-1 - не подключено) // изменено 28/11/2023
+/* Для расширения функионала и увеличения количества используемых каналов управления
+ введены так называемые "ВИРТУАЛЬНЫЕ РЕЛЕ". Они не подключены к реальным пинам МК
+ но для их использования при настройках надо указать цифру отличную от -1.
+ В массиве v_RelayPin указывается какое реле подключено к пину, а какое нет (-1 - это реальный пин, 0-виртуальное реле)).
+ В массиве val_VRelay храниться состояние виртуального реле
+*/
+const int8_t v_RelayPin[maxRelays]={-1,-1,-1,0,-1}; //перечень и соответствие пинов виртуальным реле(-1 - это реальный пин, 0-виртуальное реле)
+bool val_VRelay[maxRelays]={0,0,0,0,0}; //массив значений виртуальных реле для отслеживания и синхронизации
+
 const bool defRelayLevel = HIGH; // Уровень срабатывания реле по умолчанию
 const bool defRelayOnBoot = false; // Состояние реле при старте модуля по умолчанию
 const uint32_t defRelayAutoRelease[maxRelays] = {0,0,0,0,360000}; // Время в миллисекундах до автоотключения реле по умолчанию (0 - нет автоотключения) // изменено 19/04/2023
@@ -341,23 +350,25 @@ void ESPWebMQTTRelay::setupExtra() {
 
   for (int8_t i = 0; i < maxRelays; ++i) {
     autoRelease[i] = 0;
-    
-    if (relayPin[i] != -1) {
-      pinMode(relayPin[i], OUTPUT);  //removing
+
+      if (v_RelayPin[i] == -1) // объявить пин если он не виртуальное реле    
+      if (relayPin[i] != -1) {
+
+      pinMode(relayPin[i], OUTPUT);  
  
       if (lastStates != (uint32_t)-1) {
         if (lastStates & ((uint32_t)1 << i)) {
-          digitalWrite(relayPin[i], relayLevel[i]);        
+          if (v_RelayPin[i] == -1) digitalWrite(relayPin[i], relayLevel[i]);        
           if (relayAutoRelease[i])
             autoRelease[i] = millis() + relayAutoRelease[i];
         } else
-          digitalWrite(relayPin[i], ! relayLevel[i]);
+           if (v_RelayPin[i] == -1) digitalWrite(relayPin[i], ! relayLevel[i]); else val_VRelay[i] = !relayLevel[i];
       } else {
-        digitalWrite(relayPin[i], relayLevel[i] == relayOnBoot[i]);
+        if (v_RelayPin[i] == -1) digitalWrite(relayPin[i], relayLevel[i] == relayOnBoot[i]); else val_VRelay[i] = (relayLevel[i] == relayOnBoot[i]);
         }
       #ifndef ESP8266  // если не ESP8266
         //digitalWrite(relayPin[i], LOW);  //added        
-        digitalWrite(relayPin[i], ! relayLevel[i]);  //added   
+       if (v_RelayPin[i] == -1) digitalWrite(relayPin[i], ! relayLevel[i]);  //added   
       #endif           
     }
       
@@ -1159,9 +1170,15 @@ Humidity (DHT): <span id=\"");
     if (relayPin[id] == -1)
       page += F("disabled ");
     else {
-      if (!local_WEB_access) page += F("disabled ");  // блокировать изменение, если доступ к WEB интерфейсу закрыт      
-      if (digitalRead(relayPin[id]) == relayLevel[id])
-        page += FPSTR(extraChecked);
+      //if (!local_WEB_access) page += F("disabled ");  // блокировать изменение, если доступ к WEB интерфейсу закрыт      
+      if (v_RelayPin[id] == -1) {
+        if (digitalRead(relayPin[id]) == relayLevel[id])
+           page += FPSTR(extraChecked);
+      }
+      else {
+         if (val_VRelay[id] == relayLevel[id])
+          page += FPSTR(extraChecked);         
+       }            
     }
     page += F(">\n\
 <label for=\"");
@@ -1191,10 +1208,21 @@ String ESPWebMQTTRelay::jsonData() {
     result += FPSTR(jsonRelay);
     result += String(id);
     result += F("\":");
-    if ((relayPin[id] != -1) && (digitalRead(relayPin[id]) == relayLevel[id]))
-      result += FPSTR(bools[1]);
-    else
-      result += FPSTR(bools[0]);
+    if (relayPin[id] != -1){
+     if (v_RelayPin[id] == -1) {
+      if (digitalRead(relayPin[id]) == relayLevel[id])
+          result += FPSTR(bools[1]);
+      else
+         result += FPSTR(bools[0]);
+     } 
+     else {
+      if (val_VRelay[id] == relayLevel[id])
+          result += FPSTR(bools[1]);
+      else
+         result += FPSTR(bools[0]);       
+     }
+
+    }
     result += F(",\"");
     result += FPSTR(jsonRelayAutoRelease);
     result += String(id);
@@ -1373,7 +1401,7 @@ else\n");
   script += F(" && !data.relay");
   script += String((maxRelays-1)); 
   script += F(") {\n"); // 23/01/2026
-  script += F("for (var i=0; i<inputEl.length; i++)/n ");
+  script += F("for (var i=0; i<inputEl.length; i++)\n ");
   script += F("if(inputEl[i].value != 'Log View') if(inputEl[i].value != 'Back')\n");  
   script += F("inputEl[i].setAttribute('disabled','');\n");
   script += F("}\n");  
@@ -1386,11 +1414,12 @@ else\n");
  script += F("for (i=0; i<inputEl.length; i++) ");
  script += F("inputEl[i].removeAttribute('disabled');\n");
  script += F("}\n");  
- 
- script += F("}\n}\n");
- 
- script += F("request.send(null);\n}\n");
- script += F("setInterval(refreshData, 500);\n"); 
+
+  script += F("}\n\
+}\n\
+request.send(null);\n\
+}\n\
+setInterval(refreshData, 500);\n");
 
   httpServer->send(200, FPSTR(applicationJavascript), script);
 }
@@ -2707,7 +2736,11 @@ void ESPWebMQTTRelay::mqttCallback(char* topic, byte* payload, unsigned int leng
             break;
           default:
             if (relayPin[id] != -1) {
-              bool relay = digitalRead(relayPin[id]);
+              bool relay = false;
+              if (v_RelayPin[id] == -1)
+                relay = digitalRead(relayPin[id]);
+              else
+                relay = val_VRelay[id];
               if (! relayLevel[id])
                 relay = ! relay;
               mqttPublish(String(topic), String(relay));
@@ -2739,10 +2772,14 @@ void ESPWebMQTTRelay::mqttResubscribe() {
   #endif
   //*******
   topic += charSlash;
-
+  bool relay = false;
   for (int8_t i = 0; i < maxRelays; i++) {
     if (relayPin[i] != -1) {
-      mqttPublish(topic + String(i + 1), String(digitalRead(relayPin[i]) == relayLevel[i]));
+      if (v_RelayPin[i] == -1)
+         relay = (digitalRead(relayPin[i]) == relayLevel[i]);
+      else
+         relay = (val_VRelay[i] == relayLevel[i]);
+      mqttPublish(topic + String(i + 1), String(relay));
     }
   }
 
@@ -2765,7 +2802,11 @@ void ESPWebMQTTRelay::switchRelay(int8_t id, bool on) {
   if (((id < 0) || (id >= maxRelays)) || (relayPin[id] == -1))
     return;
 
-  bool relay = digitalRead(relayPin[id]);
+  bool relay = false;
+   if (v_RelayPin[id] == -1)
+     relay = digitalRead(relayPin[id]);
+    else
+     relay = val_VRelay[id];
 
   if (! relayLevel[id])
     relay = ! relay;
@@ -2777,7 +2818,10 @@ void ESPWebMQTTRelay::switchRelay(int8_t id, bool on) {
         autoRelease[id] = 0;
     }
 
-    digitalWrite(relayPin[id], relayLevel[id] == on);
+     if (v_RelayPin[id] == -1)    
+       digitalWrite(relayPin[id], relayLevel[id] == on); 
+     else
+       val_VRelay[id] = (relayLevel[id] == on); //для "виртуального реле" ничего не коммутировать
 
     if (pubSubClient->connected() || MQTT_connect) {
       String topic;
@@ -2806,6 +2850,7 @@ void ESPWebMQTTRelay::switchRelay(int8_t id, bool on) {
       lastStates |= ((uint32_t)1 << id);
     writeRTCmemory();
   }
+  // Добавить обработку событий при изменении состояния "ВИРТУАЛЬНЫХ РЕЛЕ"
   // ** только для четвертого реле и только для индикации состояния режима замка "ПОСТОЯННО ОТКРЫТ"
   // if (relayPin[3] != -1 && (id==1 || id==2)) {
   //   if (id==1 && on) switchRelay(3, true);  // если включалось реле №2 (режим постоянно открыто) переключить индикацию (реле №4) во включено
@@ -2815,7 +2860,10 @@ void ESPWebMQTTRelay::switchRelay(int8_t id, bool on) {
 }
 
 inline void ESPWebMQTTRelay::toggleRelay(int8_t id) {
-  switchRelay(id, digitalRead(relayPin[id]) != relayLevel[id]);
+  if (v_RelayPin[id] == -1) 
+    switchRelay(id, digitalRead(relayPin[id]) != relayLevel[id]);
+  else
+    switchRelay(id, val_VRelay[id] != relayLevel[id]);  
 }
 
 bool ESPWebMQTTRelay::debounceRead(int8_t id, uint32_t debounceTime) {

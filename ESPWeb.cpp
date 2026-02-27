@@ -892,6 +892,11 @@ Upload new file:<br/>\n");
   page += ESPWebBase::tagInput(FPSTR(typeFile), F("upload"), strEmpty);
   page += charLF;
   page += ESPWebBase::tagInput(FPSTR(typeSubmit), strEmpty, F("Upload"));
+  
+  page += F("\n<p>\n");
+  page += charLF;
+  page += btnBack();
+
   page += F("\n\
 </form>\n");
 
@@ -908,6 +913,11 @@ Select compiled sketch to upload:<br/>\n");
   page += ESPWebBase::tagInput(FPSTR(typeFile), F("update"), strEmpty);
   page += charLF;
   page += ESPWebBase::tagInput(FPSTR(typeSubmit), strEmpty, F("Update"));
+  
+  page += F("\n<p>\n");
+  page += charLF;
+  page += btnBack();
+
   page += F("\n\
 </form>\n");
   page += ESPWebBase::webPageEnd();
@@ -1274,7 +1284,7 @@ openUrl('");
 }\n");
 
   String page = ESPWebBase::webPageStart(F("Log View"));
-  page += F("<META http-equiv=\"refresh\" content=\"2;URL=\">\n");
+  page += F("<META http-equiv=\"refresh\" content=\"12;URL=\">\n");
   page += ESPWebBase::webPageScript(script);
   page += ESPWebBase::webPageBody();
   page += F("<h3>Log View</h3>\n\
