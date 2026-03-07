@@ -1223,6 +1223,7 @@ String ESPWebMQTTRelay::jsonData() {
      }
 
     }
+    else result += FPSTR(bools[0]); 
     result += F(",\"");
     result += FPSTR(jsonRelayAutoRelease);
     result += String(id);
