@@ -31,6 +31,9 @@
 #include "Schedule.h"
 #include "RTCmem.h"
 
+#include "soc/soc.h" //disable brownout problems 27/01/2026
+#include "soc/rtc_cntl_reg.h"  //disable brownout problems 27/01/2026
+
 const int8_t maxRelays = 5; // Количество каналов реле
 const int8_t maxSchedules = 10; // Количество элементов расписания
 
@@ -3045,6 +3048,7 @@ void ESPWebMQTTRelay::publishLDR() {
 ESPWebMQTTRelay* app = new ESPWebMQTTRelay();
 
 void setup() {
+ WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector  27/01/2026
 #ifndef NOSERIAL
   Serial.begin(115200); //, SERIAL_8N1, SERIAL_TX_ONLY);
   Serial.println();
