@@ -148,7 +148,7 @@ const char paramGPRS_user[] PROGMEM = "gprsuser";
 const char paramGPRS_pwd[] PROGMEM = "gprspwd";
 const char firstStringLog[] PROGMEM = "Date;Time;White List;SIM card;BIN file;WRONG number";
 const char paramWhiteList[] PROGMEM = "whiteList"; // Параметр белых номеров 
-const int total_bin_num = 2000; //2000 имеющихся в SPIFFS телефонной книге номеров
+const int total_bin_num = 3000; //2000 имеющихся в SPIFFS телефонной книге номеров
 const uint16_t maxStringLen = 32; // Максимальная длина строковых параметров в Web-интерфейсе
 
 class ESPWebBase { // Базовый класс
@@ -164,10 +164,10 @@ public:
   virtual bool writeTXTstring(const String& file_num_string, uint8_t command_type);
   virtual bool saveFile(const String& Fname); //процедура сохранения нового BIN файла с номерами телефонов в SPIFFS 
 
-  int64_t phones_on_sim[total_bin_num]; //+ 2000 имеющихся в телефонной книге номеров
+  int64_t phones_on_sim[total_bin_num]; //+ 3000 имеющихся в телефонной книге номеров
   virtual void readBINfile(); // прочитать двоичный файл и заполить номерами массив
   int readTXTfile(); // прочитать текстовый файл и заполить номерами массив
-  virtual void readTXTCSVfile(); // прочитать текстовый файл c 2000 номерами и заполить номерами массив и создать новый BIN файл
+  virtual void readTXTCSVfile(); // прочитать текстовый файл c 3000 номерами и заполить номерами массив и создать новый BIN файл
 
 #ifdef ESP8266 
   ESP8266WebServer* httpServer; // Web-сервер
