@@ -148,7 +148,7 @@ const char paramGPRS_user[] PROGMEM = "gprsuser";
 const char paramGPRS_pwd[] PROGMEM = "gprspwd";
 const char firstStringLog[] PROGMEM = "Date;Time;White List;SIM card;BIN file;WRONG number";
 const char paramWhiteList[] PROGMEM = "whiteList"; // Параметр белых номеров 
-const int total_bin_num = 3000; //2000 имеющихся в SPIFFS телефонной книге номеров
+const int total_bin_num = 3000; //3000 имеющихся в SPIFFS телефонной книге номеров
 const uint16_t maxStringLen = 32; // Максимальная длина строковых параметров в Web-интерфейсе
 
 class ESPWebBase { // Базовый класс
