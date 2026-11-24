@@ -299,7 +299,7 @@ void ESPWebMQTTBase::mqttCallback(char* topic, byte* payload, unsigned int lengt
   _log->print(F("MQTT message arrived ["));
   _log->print(topic);
   _log->print(F("] "));
-  for (int i = 0; i < length; ++i) {
+  for (int i = 0; i < length; i++) {
     _log->print((char)payload[i]);
   }
   _log->println();
@@ -355,7 +355,7 @@ void ESPWebMQTTBase::add_in_queue_comand(int _inncomand, const char* _inn_text_c
    modem_comand.com = _inncomand;
    modem_comand.com_flag = _com_flag;
    //_inn_text_comand.toCharArray(modem_comand.text_com, _inn_text_comand.length());
-   for (int v=0; v<max_text_com; ++v) {
+   for (int v=0; v<max_text_com; v++) {
      modem_comand.text_com[v] = _inn_text_comand[v];
      if (_inncomand !=8) {if (_inn_text_comand[v] == NULL) break;}
    }
@@ -467,7 +467,7 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   rest_length = strlen(MQTT_type)+_mqttClient.length()+topic.length()+strlen(mqttDeviceStatusOff)+12; 
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; //#2 старший байт длины названия протокола
   _inn_comm[_curr_poz] =strlen(MQTT_type); ++_curr_poz; //#3 младший байт длины названия протокола
-  for (int v=0;v<strlen(MQTT_type);++v) {_inn_comm[_curr_poz] = MQTT_type[v]; ++_curr_poz;} //байты типа протокола  
+  for (int v=0;v<strlen(MQTT_type);v++) {_inn_comm[_curr_poz] = MQTT_type[v]; ++_curr_poz;} //байты типа протокола  
   _inn_comm[_curr_poz] =0x04; ++_curr_poz; // Protocol Level byte 00000100
   //Connect Flag bits: 7-User Name Flag, 6-Password Flag, 5-Will Retain, 4-Will QoS, 3-Will QoS, 2-Will Flag, 1-Clean Session, 0-Reserved
   if (_mqttClient == strEmpty) {
@@ -480,17 +480,17 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
   _inn_comm[1] = rest_length;  // оставшееся количество байт без логина и пароля пользователя
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =0x3C; ++_curr_poz; // время жизни сессии (2 байта) 0x23-35sec, 0x28-40sec, 0x3C-60sec
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz] =_mqttClient.length(); ++_curr_poz; // длина идентификатора (2 байта)
-  for (int v=0;v<_mqttClient.length();++v) {_inn_comm[_curr_poz] = _mqttClient[v]; ++_curr_poz;}  // MQTT  идентификатор устройства
+  for (int v=0;v<_mqttClient.length();v++) {_inn_comm[_curr_poz] = _mqttClient[v]; ++_curr_poz;}  // MQTT  идентификатор устройства
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=topic.length(); ++_curr_poz;  // длина LWT топика (2 байта) 
-  for (int v=0;v<topic.length();++v) {_inn_comm[_curr_poz] = topic[v]; ++_curr_poz;}  // LWT топик    
+  for (int v=0;v<topic.length();v++) {_inn_comm[_curr_poz] = topic[v]; ++_curr_poz;}  // LWT топик    
   _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=strlen(mqttDeviceStatusOff); ++_curr_poz; // длина LWT сообщения (2 байта) 
-  for (int v=0;v<strlen(mqttDeviceStatusOff);++v) {_inn_comm[_curr_poz] = mqttDeviceStatusOff[v]; ++_curr_poz;}   // LWT сообщение  
+  for (int v=0;v<strlen(mqttDeviceStatusOff);v++) {_inn_comm[_curr_poz] = mqttDeviceStatusOff[v]; ++_curr_poz;}   // LWT сообщение  
 
   if (_mqttClient != strEmpty) {
       _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttUser.length(); ++_curr_poz;// длина MQTT логина (2 байта) 
-     for (int v=0;v<_mqttUser.length();++v) {_inn_comm[_curr_poz] = _mqttUser[v]; ++_curr_poz;} // MQTT логин
+     for (int v=0;v<_mqttUser.length();v++) {_inn_comm[_curr_poz] = _mqttUser[v]; ++_curr_poz;} // MQTT логин
      _inn_comm[_curr_poz] =0x00; ++_curr_poz; _inn_comm[_curr_poz]=_mqttPassword.length(); ++_curr_poz;// длина MQTT пароля (2 байта) 
-     for (int v=0;v<_mqttPassword.length();++v) {_inn_comm[_curr_poz] = _mqttPassword[v]; ++_curr_poz;} // MQTT пароль
+     for (int v=0;v<_mqttPassword.length();v++) {_inn_comm[_curr_poz] = _mqttPassword[v]; ++_curr_poz;} // MQTT пароль
   }
   add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), 0);
   add_in_queue_comand(8, _inn_comm, 8);
@@ -511,9 +511,9 @@ void ESPWebMQTTBase::GPRS_MQTT_connect (){
     _inn_comm[0]=0x33; // было 0x30 без retain Qos0, 0x31 с retain Qos0, 0x33 Qos1 (не работает??)
     _inn_comm[1]=_topic.length()+_messege.length()+2+2; //отсавшаяся длина пакета
     _inn_comm[2]=0x00; _inn_comm[3]=_topic.length();
-    for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
+    for (int8_t v=0; v<_topic.length();v++) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}// топик
     _inn_comm[_curr_poz]=0x00; ++_curr_poz; _inn_comm[_curr_poz]=0x10; ++_curr_poz; // идентификатор отправленного пакета для подтвержения публикации
-    for (int8_t v=0; v<_messege.length();++v) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}   // сообщение  
+    for (int8_t v=0; v<_messege.length();v++) {_inn_comm[_curr_poz]=_messege[v]; ++_curr_poz;}   // сообщение  
 
   add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), 0);
   add_in_queue_comand(8, _inn_comm, 8);
@@ -541,7 +541,7 @@ void ESPWebMQTTBase::GPRS_MQTT_ping () {                                // па�
   _inn_comm[1]=_topic.length()+5;   // сумма пакета 
   _inn_comm[2]=0x00; _inn_comm[3]=0x01; _inn_comm[4]=0x00;
   _inn_comm[5]=_topic.length();  // топик
-    for (int8_t v=0; v<_topic.length();++v) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}  
+    for (int8_t v=0; v<_topic.length();v++) {_inn_comm[_curr_poz]=_topic[v]; ++_curr_poz;}  
   _inn_comm[_curr_poz]=0x00;   
 
   add_in_queue_comand(30, String(F("+GSMBUSY=1")).c_str(), 0);

@@ -230,7 +230,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
        _comm = FPSTR("+CPBW=");
              if (app->indexOnSim[_num_index]>0) _comm += String(app->indexOnSim[_num_index]);               
                _comm += F(",\""); 
-             for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; ++g) _comm += app->PhoneOnSIM[_num_index][g]; 
+             for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; g++) _comm += app->PhoneOnSIM[_num_index][g]; 
                _comm += F("\",129,\""); 
                _comm += String(app->CommentOnSIM[_num_index]);
                _comm += charQuote; //"\"";
@@ -422,7 +422,7 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
          #ifndef NOSERIAL
         //  Serial.print("Try to send SMS text "); 
            Serial.println(_comm);  // Дублируем команду в монитор порта
-          //  for (int i=0;i<_comm.length();++i){
+          //  for (int i=0;i<_comm.length();i++){
           //    Serial.print(int(_comm[i]));Serial.print(" ");
           //  } 
           //  Serial.println("");
@@ -430,11 +430,11 @@ int8_t _step = 0; //текущий шаг в процедуре GPRS_traffic -г
       }
      else {
        if (flag_modem_resp == 8) {// Отправляем битовый массив модулю
-        for (int8_t f=0; f<2; ++f) {// Отправить фиксированный заголовок 2 байта
+        for (int8_t f=0; f<2; f++) {// Отправить фиксированный заголовок 2 байта
          SIM800.write(modem_comand.text_com[f]); 
         // Serial.print(modem_comand.text_com[f],HEX); Serial.print(' ');
          if (f==1) {// второй байт это длина остального сообщения которое надо отправить
-          for (int r=0; r<modem_comand.text_com[f]; ++r) { 
+          for (int r=0; r<modem_comand.text_com[f]; r++) { 
               SIM800.write(modem_comand.text_com[f+r+1]);  
              // Serial.print(modem_comand.text_com[f+r+1],HEX); Serial.print(' ');
           }
@@ -531,14 +531,14 @@ void Sim800_setup() {
    ReLoadBinMassiv(); // обнулить все номера телефонов в массиве и загрузить из BIN файла все номера 
   
   //  #ifndef NOSERIAL 
-  //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
+  //  for (int16_t n=0; n < app->alloc_num[2]; n++){
   //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
   //  }
   //  #endif 
 
    queue_IN_SMS = xQueueCreate(max_queue, sizeof(int)); // очередь обработки СМС
 
-  for (int v = 0; v < 250; ++v) // обнулить все номера телефонов в массиве
+  for (int v = 0; v < 250; v++) // обнулить все номера телефонов в массиве
     {
      app->PhoneOnSIM[v][0] = NULL;
      app->CommentOnSIM[v][0] = NULL;
@@ -562,7 +562,7 @@ void Sim800_setup() {
   IsRestart = true; // признак однократной отправки Restart в модем
   app->add_in_queue_comand(9,"", 0); //удалить все смс сохраненные на СИМ карте
     // #ifndef NOSERIAL    
-    //   for (int g=0; g<number_comant_type; ++g) {
+    //   for (int g=0; g<number_comant_type; g++) {
     //     Serial.print(FPSTR(comand_nume[g]));
     //     Serial.print(F(" num "));  Serial.print((const int8_t)pgm_read_word(&comand_prop[g][0]));
     //     Serial.print(F(" sms "));Serial.println((const int8_t)pgm_read_word(&comand_prop[g][1]));
@@ -582,7 +582,7 @@ void add_in_queue_SMS (int _innSMSindex){
 }
 
 void ReLoadBinMassiv(){
-    for (int v = 0; v < total_bin_num; ++v) {// обнулить все номера телефонов в массиве
+    for (int v = 0; v < total_bin_num; v++) {// обнулить все номера телефонов в массиве
     app->phones_on_sim[v] = 0;}
    
     app->readBINfile(); // загрузить из BIN файла все номера
@@ -647,7 +647,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
     } 
       #ifndef NOSERIAL      
         Serial.println("          " + _response);                  // Если нужно выводим в монитор порта  
-        // for (int f=0;f<_response.length();++f){
+        // for (int f=0;f<_response.length();f++){
         //   Serial.print(_response[f],HEX); Serial.print(' ');
         // }
       #endif 
@@ -861,8 +861,8 @@ if (SIM800.available())   {                   // Если модем, что-т�
           _response +=textnumbercomment;  
           //_response +=charCR + charLF;//"\r\n"; 
        //Заполнить массив номерами и коментариями для записи в текстовый файл
-        for (uint8_t m=0; m<DIGIT_IN_PHONENAMBER; ++m) app->PhoneOnSIM[phonen_index.toInt()][m] = textnumber[m];   
-        for (uint8_t m=0; m<(DIGIT_IN_PHONENAMBER+6); ++m)    //textnumbercomment.length()        
+        for (uint8_t m=0; m<DIGIT_IN_PHONENAMBER; m++) app->PhoneOnSIM[phonen_index.toInt()][m] = textnumber[m];   
+        for (uint8_t m=0; m<(DIGIT_IN_PHONENAMBER+6); m++)    //textnumbercomment.length()        
             { if (textnumbercomment.length() < m)
                 {app->CommentOnSIM[phonen_index.toInt()][m] = NULL; 
                 break;
@@ -934,12 +934,12 @@ if (SIM800.available())   {                   // Если модем, что-т�
         }
       else if (flag_modem_resp==5 && millis() > t_last_command) // завершено создание файла с перечнем номеров
         { uint8_t count_row=0;
-          for (uint8_t j=0; j<250; ++j)
+          for (uint8_t j=0; j<250; j++)
              {
                 if (app->PhoneOnSIM[j][0] != NULL)
                  { _response=String(j);
                    _response +=';';                 
-                  for (uint8_t m=0; m<DIGIT_IN_PHONENAMBER; ++m)
+                  for (uint8_t m=0; m<DIGIT_IN_PHONENAMBER; m++)
                    _response +=app->PhoneOnSIM[j][m];
                    _response +=';';
                    _response += String(app->CommentOnSIM[j]); 
@@ -1040,7 +1040,7 @@ if (SIM800.available())   {                   // Если модем, что-т�
          String s1; 
             s1 += _response.substring(4 , 4 + _response[3]);                 
         char _topik_path[s1.length()+1];
-        for (int k=0; k < s1.length()+1; ++k) _topik_path[k]=s1[k];
+        for (int k=0; k < s1.length()+1; k++) _topik_path[k]=s1[k];
          s1 = _response.substring(4 + _response[3]);
         byte* _payload;
         byte sb1 = (byte)s1[0];
@@ -1114,7 +1114,7 @@ void simNotReady(){
 
 void print_MQTTrespons_to_serial(const String& _resp){
     #ifndef NOSERIAL
-     for (int h=0; h<_resp.length();++h){
+     for (int h=0; h<_resp.length();h++){
          Serial.print(_resp[h], HEX); Serial.print(" ");
      }
       Serial.println();
@@ -1140,7 +1140,7 @@ void parseSMS(const String& msg) {                                   // Парс
   int secondIndex = msgheader.indexOf("\",\"", firstIndex);
   msgphone = msgheader.substring(firstIndex, secondIndex); // Выдергиваем телефон
   // Записать номер с которого пришло СМС в глобальную переменную для общего доступа
-  for (uint8_t j=0; j < msgphone.length()+1; ++j){
+  for (uint8_t j=0; j < msgphone.length()+1; j++){
       if (j == msgphone.length())
         SMS_incoming_num[j] = NULL;  // если последний символ - добавить нулл в массив для финализации строки
       else  SMS_incoming_num[j] = msgphone[j];
@@ -1188,7 +1188,7 @@ void EraseCurrSMS(){
 // Удаление любых пробелов из строки
 String probel_remove(const String& msg){
    String temp_resp="";
-  for (uint8_t j=0; j < msg.length(); ++j) {
+  for (uint8_t j=0; j < msg.length(); j++) {
      if (msg[j] != ' ') temp_resp += msg[j];
   }
   return temp_resp; 
@@ -1212,7 +1212,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   int is_phonenumber = 0; //в СМС должен быть номер телефона
   sms_answer = 0 ; // надо ли отвечать на входящую СМС
   IsComment=false;  //признак наличия прикрепленного к номеру комментария  
-    for (uint8_t j=0; j < DIGIT_IN_PHONENAMBER; ++j)
+    for (uint8_t j=0; j < DIGIT_IN_PHONENAMBER; j++)
       {             SMS_text_num[j] = ' ';
        if (j<5) SMS_text_comment[j] = ' ';       
       }
@@ -1231,7 +1231,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
    //От команды зависит, что делать дальше 
     // - проверять наличие прикрепленного телефона 
     // - отправлять ответную СМС или нет (ели нет то удалить текущую СМС сразу)
-      for (int g=0; g < number_comant_type; ++g) {
+      for (int g=0; g < number_comant_type; g++) {
         if  (comment == FPSTR(comand_nume[g])) { //(comment.compareTo(FPSTR(comand_nume[g])) == 0) { 
          num_text_comanda = g; // номер команды найден в массиве команд
          is_phonenumber = (const int8_t)pgm_read_word(&comand_prop[g][0]); //в СМС должен быть номер телефона
@@ -1327,7 +1327,7 @@ void madeSMSCommand(const String& msg, const String& incoming_phone){
   }
  
 // Все проверки пройдены сохранить в глобальные переменные команду, номер и комментарий из СМС
-    for (uint8_t j=0; j < DIGIT_IN_PHONENAMBER; ++j)
+    for (uint8_t j=0; j < DIGIT_IN_PHONENAMBER; j++)
       {             SMS_text_num[j] = phoneNUM[j] ;   // номер телефона из СМС
        if (j<5 && IsComment) SMS_text_comment[j] = comment[j] ; // комментарий к номеру из СМС      
       } 
@@ -1432,7 +1432,7 @@ void made_action(int _command, int _answer)
     {
      app->readTXTCSVfile();  
   // #ifndef NOSERIAL 
-  //  for (int16_t n=0; n < app->alloc_num[2]; ++n){
+  //  for (int16_t n=0; n < app->alloc_num[2]; n++){
   //       Serial.print(String(n)); Serial.print(" - "); Serial.println(BINnum_to_string(app->phones_on_sim[n])); // для отладки отправляем по UART все что прочитали с карты.
   //  }
   //  #endif      
@@ -1488,9 +1488,9 @@ void made_action(int _command, int _answer)
       }  
       char WtNum[3][DIGIT_IN_PHONENAMBER+1];
       int wn=0; int cwn=0;
-      for (int j=0; j<3; ++j) {WtNum[j][0]=NULL; WtNum[j][DIGIT_IN_PHONENAMBER]=NULL;}
+      for (int j=0; j<3; j++) {WtNum[j][0]=NULL; WtNum[j][DIGIT_IN_PHONENAMBER]=NULL;}
 
-      for (int j=0; j<app ->_whiteListPhones.length(); ++j){
+      for (int j=0; j<app ->_whiteListPhones.length(); j++){
         if (cwn == DIGIT_IN_PHONENAMBER) {
           WtNum[wn][cwn]=NULL;
           ++wn; cwn=0;
@@ -1505,7 +1505,7 @@ void made_action(int _command, int _answer)
     //      Serial.println("*****************");
     //  #endif
       String NewWhiteList="";    
-      for (int j=0; j<3; ++j) {  
+      for (int j=0; j<3; j++) {  
         if (String(WtNum[j]).indexOf(String(SMS_text_num)) > -1) { //если удаляемый номер
           WtNum[j][0]=NULL;
         }
@@ -1552,7 +1552,7 @@ void made_action(int _command, int _answer)
   else if (_command == 15) // F("RA1")) { // Управлять реле через SMS  
      { temp_respons = String(str_relay);
       int8_t h=0;
-      for (int8_t i=0; i<maxRelays; ++i){
+      for (int8_t i=0; i<maxRelays; i++){
         if (app->relayPin[i] != -1) {
           app->switchRelay(i, true); 
           if (h==0){
@@ -1574,7 +1574,7 @@ void made_action(int _command, int _answer)
    else if (_command == 21) { // F("RA0")) Управлять реле через SMS  
      temp_respons = String(str_relay);   
        int8_t h=0;
-      for (int8_t i=0; i<maxRelays; ++i){
+      for (int8_t i=0; i<maxRelays; i++){
         if (app->relayPin[i] != -1) {
           app->switchRelay(i, false); 
          if (h==0){
@@ -1590,7 +1590,7 @@ void made_action(int _command, int _answer)
    else if (_command == 22) {//"Cnf" Создать с заменой новый файл Nomera2000.txt из имеющегося в памяти массива 2000 номеров  
        if (app->alloc_num[2]>0) {
          app->_CreateFile(2);
-         for (int v = 0; v < app->alloc_num[2]; ++v) {// перебрать все номера телефонов в массиве
+         for (int v = 0; v < app->alloc_num[2]; v++) {// перебрать все номера телефонов в массиве
            //if (app->phones_on_sim[v] == 0) break;
            app->writeTXTstring(BINnum_to_string(app->phones_on_sim[v]),2);
            vTaskDelay(25);
@@ -1660,7 +1660,7 @@ void regular_call()
 }
 
 void clear_arrey(){
-   for (int v = 0; v < 250; ++v) // обнулить все номера телефонов в массиве
+   for (int v = 0; v < 250; v++) // обнулить все номера телефонов в массиве
       {
         app->PhoneOnSIM[v][0] = NULL;
         app->CommentOnSIM[v][14] = NULL;
@@ -1671,9 +1671,9 @@ void clear_arrey(){
 String BINnum_to_string(uint64_t bin_num){
     String _retnum;
     char digit;
-    for(uint8_t h=0; h < DIGIT_IN_PHONENAMBER; ++h){
+    for(uint8_t h=0; h < DIGIT_IN_PHONENAMBER; h++){
         digit =0;
-        for (int8_t j=0; j<4; ++j)
+        for (int8_t j=0; j<4; j++)
           bitWrite(digit, 3-j, bitRead(bin_num, 63 - (h*4+j)));
         digit += '0';
         _retnum += digit;
@@ -1683,7 +1683,7 @@ String BINnum_to_string(uint64_t bin_num){
 // преобразовать строку с номером в двоичный код
 int64_t stringnum_to_bin(const String& string_num){
   int64_t _retbin=0;
-  for (int8_t g=0; g < string_num.length(); ++g)
+  for (int8_t g=0; g < string_num.length(); g++)
   {
     _retbin |= uint64_t(string_num[g] - '0') << (60-g*4); 
   }
@@ -1693,7 +1693,7 @@ int64_t stringnum_to_bin(const String& string_num){
 int16_t poisk_num(const String& txt_num){
   int16_t _ret=-1;
   uint64_t found_num = stringnum_to_bin(txt_num);
-  for (int v = 0; v < total_bin_num; ++v)
+  for (int v = 0; v < total_bin_num; v++)
   { if (app->phones_on_sim[v] != 0)
        if (app->phones_on_sim[v] == found_num)
             _ret=v;

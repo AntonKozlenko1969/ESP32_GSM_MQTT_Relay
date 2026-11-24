@@ -24,7 +24,7 @@ float DS1820::readTemperature() {
   _ow->select(_addr);
   _ow->write(0xBE); // Read Scratchpad
 
-  for (uint8_t i = 0; i < 9; ++i) { // we need 9 bytes
+  for (uint8_t i = 0; i < 9; i++) { // we need 9 bytes
     data[i] = _ow->read();
   }
 

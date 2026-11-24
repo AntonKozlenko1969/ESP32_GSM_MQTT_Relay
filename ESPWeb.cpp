@@ -116,7 +116,7 @@ void ESPWebBase::_setup() {// Изменено
       delay(1);
     }
     if (eepromErase) {
-      for (uint16_t i = 0; i < 4096; ++i)
+      for (uint16_t i = 0; i < 4096; i++)
         writeEEPROM(i, 0xFF);
       commitEEPROM();
       _log->println(F("EEPROM erased succefully!"));
@@ -149,7 +149,7 @@ void ESPWebBase::_setup() {// Изменено
     Serial.printf("Used space: %10u\n", SPIFFS.usedBytes());    
   #endif  
    //очистить массив названий файлов логов
-   for (int8_t f=0; f<LOG_FILE_COUNT; ++f ) _callLogFile[f][0] = NULL;  
+   for (int8_t f=0; f<LOG_FILE_COUNT; f++ ) _callLogFile[f][0] = NULL;  
    // выполнить проверку максимального размера файла архива (с учетом уже имеющихся файлов)
     listDir("/", 0, true); // просмотреть SPIFFS и заполнить массив _callLogFile именами файлов с логами звонков
    }
@@ -201,7 +201,7 @@ void ESPWebBase::_loop() { // Изменено
         String namewifi = "" ;
         String ssidwifi=_ssid.c_str();
         //_log->println(F("Scan WiFi environment."));
-        for (int g = 0; g < nwifi; ++g) {
+        for (int g = 0; g < nwifi; g++) {
             // Print SSID and RSSI for each network found
             namewifi = WiFi.SSID(g); 
             if (ssidwifi==namewifi && _ssid.length()>0 && ssidwifi.length()>0) {
@@ -264,7 +264,7 @@ uint16_t ESPWebBase::readRTCmemory() {
 
  _log->println(F("Reading RTC memory"));
 #ifdef ESP8266 
- for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); ++i) {
+ for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); i++) {
    char c = pgm_read_byte(ESPWebBase::_signEEPROM + i);
    if (RTCmem.read(offset++) != c)
      break;
@@ -283,7 +283,7 @@ uint16_t ESPWebBase::writeRTCmemory() {
 
  _log->println(F("Writing config to RTC"));
 #ifdef ESP8266 
- for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); ++i) {
+ for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); i++) {
    char c = pgm_read_byte(ESPWebBase::_signEEPROM + i);
    RTCmem.write(offset++, c);
  }
@@ -327,7 +327,7 @@ void ESPWebBase::writeEEPROM(uint16_t offset, const uint8_t* buf, uint16_t len) 
 
 uint16_t ESPWebBase::readEEPROMString(uint16_t offset, String& str, uint16_t maxlen) {
   str = strEmpty;
-  for (uint16_t i = 0; i < maxlen; ++i) {
+  for (uint16_t i = 0; i < maxlen; i++) {
     char c = readEEPROM(offset + i);
     if (! c)
       break;
@@ -341,7 +341,7 @@ uint16_t ESPWebBase::readEEPROMString(uint16_t offset, String& str, uint16_t max
 uint16_t ESPWebBase::writeEEPROMString(uint16_t offset, const String& str, uint16_t maxlen) {
   int slen = str.length();
 
-  for (uint16_t i = 0; i < maxlen; ++i) {
+  for (uint16_t i = 0; i < maxlen; i++) {
     if (i < slen)
       writeEEPROM(offset + i, str[i]);
     else
@@ -363,7 +363,7 @@ uint8_t ESPWebBase::crc8EEPROM(uint16_t start, uint16_t end) {
   while (start < end) {
     crc ^= readEEPROM(start++);
 
-    for (uint8_t i = 0; i < 8; ++i)
+    for (uint8_t i = 0; i < 8; i++)
       crc = crc & 0x80 ? (crc << 1) ^ 0x31 : crc << 1;
   }
 
@@ -374,7 +374,7 @@ uint16_t ESPWebBase::readConfig() {
   uint16_t offset = 0;
 
   _log->println(F("Reading config from EEPROM"));
-  for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); ++i) {
+  for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); i++) {
     char c = pgm_read_byte(ESPWebBase::_signEEPROM + i);
     if (readEEPROM(offset++) != c)
       break;
@@ -423,7 +423,7 @@ uint16_t ESPWebBase::writeConfig(bool commit) {
   else _apMode=false;
 
   _log->println(F("Writing config to EEPROM"));
-  for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); ++i) {
+  for (uint8_t i = 0; i < sizeof(ESPWebBase::_signEEPROM); i++) {
     char c = pgm_read_byte(ESPWebBase::_signEEPROM + i);
     writeEEPROM(offset++, c);
   }
@@ -1035,7 +1035,7 @@ return true;\n\
         String namewifi = "" ;
         const String ssidwifi = _ssid.c_str();
         _log->println(F("Scan WiFi environment."));
-        for (int g = 0; g < nwifi; ++g) {
+        for (int g = 0; g < nwifi; g++) {
             // Print SSID and RSSI for each network found
             namewifi = WiFi.SSID(g); 
             _log->print(g + 1);
@@ -1248,7 +1248,7 @@ Current date and time: <span id=\"");
 void ESPWebBase::handleStoreConfig() {
   String argName, argValue;
 
-  for (uint8_t i = 0; i < httpServer->args(); ++i) {
+  for (uint8_t i = 0; i < httpServer->args(); i++) {
     argName = httpServer->argName(i);
     argValue = httpServer->arg(i);
     setConfigParam(argName, argValue);
@@ -1710,7 +1710,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
         }  
 
      //Проверить наличие пустого названия среди семи элементов массива. Если все элементы заняты - удалить нулевой
-       for (int8_t f=0; f<LOG_FILE_COUNT; ++f ) 
+       for (int8_t f=0; f<LOG_FILE_COUNT; f++) 
           if (_callLogFile[f][0] == NULL) {_resp = true; break;}
        if ((!_resp && _activLogFile < 0)) //если уже все названия в массиве заняты - надо удалить самый старый файл и создать новый пустой
          { if (SPIFFS.remove("/" + String(_callLogFile[0])))
@@ -1737,7 +1737,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
        bool _sort = false; //признак что надо передвинуть файл выше по номерам и переименовать т.к. перед ним есть пустое значение
        do {
         _sort = false; _isnull = -1; _file_found = -1;
-        for (int8_t f=0; f<LOG_FILE_COUNT; ++f ) {
+        for (int8_t f=0; f<LOG_FILE_COUNT; f++) {
            if (_callLogFile[f][0] != NULL && _isnull < 0)  _file_found = f;  
            else if (_callLogFile[f][0] != NULL && _isnull >= 0) { _file_found = f; _sort = true; break;}
            else if (_callLogFile[f][0] == NULL) _isnull = f;
@@ -1750,7 +1750,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
                Serial.print("newFile - "); Serial.println(newFile);               
              #endif               
            if (SPIFFS.rename(oldFile, newFile)) {
-             for (int h=0; h<newFile.length();++h) _callLogFile[_isnull][h] = newFile[h+1];
+             for (int h=0; h<newFile.length();h++) _callLogFile[_isnull][h] = newFile[h+1];
              _callLogFile[_file_found][0] = NULL;             
              if (_activLogFile >= 0 && _file_found == _activLogFile) _activLogFile = _isnull; //если уже есть активный файл сменить его индекс после переименования
                 // #ifndef NOSERIAL 
@@ -1773,7 +1773,7 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
          { 
          // установить признак что надо создать файл и надо добавить заголовок таблицы
           _newLogFile = true;           
-           for (int8_t f=0; f<LOG_FILE_COUNT; ++f ) 
+           for (int8_t f=0; f<LOG_FILE_COUNT; f++) 
               if (_callLogFile[f][0] == NULL) { _activLogFile = f; _resp = true; break;}
          }
        else { // Если активный файл уже используется
@@ -1789,9 +1789,9 @@ bool ESPWebBase::writeTXTstring(const String& file_num_string, uint8_t command_t
            _callLogFile[_activLogFile][7]=file_num_string[3];_callLogFile[_activLogFile][8]=file_num_string[4];   
            _callLogFile[_activLogFile][9]=carrYar[0];_callLogFile[_activLogFile][10]=carrYar[1];
            _callLogFile[_activLogFile][11]=carrYar[2];_callLogFile[_activLogFile][12]=carrYar[3];                                    
-           //for (int8_t u=0;u<8;++u) _callLogFile[_activLogFile][5+u]=file_num_string[u];
+           //for (int8_t u=0;u<8;u++) _callLogFile[_activLogFile][5+u]=file_num_string[u];
            _callLogFile[_activLogFile][5+8]='_';
-           for (int8_t u=0;u<8;++u) {
+           for (int8_t u=0;u<8;u++) {
              if (file_num_string[9+u] == ';')
               _callLogFile[_activLogFile][14+u]=',';
              else
@@ -1864,7 +1864,7 @@ void ESPWebBase::readTXTCSVfile() {
     //char charBuf[buffer.length()+1];
     //buffer.toCharArray(charBuf, buffer.length());  
      isnum=true; // признак, что весь текст из цифр
-     for (int v=0; v < DIGIT_IN_PHONENAMBER; ++v) {
+     for (int v=0; v < DIGIT_IN_PHONENAMBER; v++) {
        if (buffer[v+_start]<48 || buffer[v+_start]>57) // если число ничего не делать
            {isnum=false; 
              #ifndef NOSERIAL 
@@ -1876,7 +1876,7 @@ void ESPWebBase::readTXTCSVfile() {
      if (isnum){
          phones_on_sim[ind]=0;
 
-       for (int8_t g=0; g < buffer.length()-1-_start; ++g) {
+       for (int8_t g=0; g < buffer.length()-1-_start; g++) {
          phones_on_sim[ind] |= uint64_t(buffer[g] - '0') << (60-g*4); 
         //  #ifndef NOSERIAL 
         //    Serial.print(buffer[g]); // для отладки отправляем по UART все что прочитали с карты.
@@ -1966,9 +1966,9 @@ int ESPWebBase::readTXTfile() {
         string_position++; //позиция в строке с 0 и т.тд.
         pch = strtok (NULL, ";");
         if (pch == NULL) {
-           for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; ++g)
+           for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; g++)
              PhoneOnSIM[v][g]=phone_num[g]; 
-           for (uint8_t g=0; g<15; ++g)    //textnumbercomment.length()        
+           for (uint8_t g=0; g<15; g++)    //textnumbercomment.length()        
             { if (phone_comment.length() < g)
                 {CommentOnSIM[v][g] = NULL; 
                 break;
@@ -1986,7 +1986,7 @@ int ESPWebBase::readTXTfile() {
              else indexOnSim[v]=0; 
               
           //    temp_resp += ",\""; 
-          //    for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; ++g) temp_resp += PhoneOnSIM[v][g]; 
+          //    for (uint8_t g=0; g<DIGIT_IN_PHONENAMBER; g++) temp_resp += PhoneOnSIM[v][g]; 
           //    temp_resp += "\",129,\""; 
           //    temp_resp += String(CommentOnSIM[v]);
           //    temp_resp +="\"";    
@@ -2015,10 +2015,10 @@ bool ESPWebBase::saveFile(const String& Fname){
   File PhoneFile =  SPIFFS.open(Fname, FILE_APPEND); 
   if (PhoneFile){
      // write_bayt = PhoneFile.write(buf, 8);
-     for (int16_t l=0; l < total_bin_num; ++l)
+     for (int16_t l=0; l < total_bin_num; l++)
       { if  (phones_on_sim[l] !=0 ) { // Если номер не равен нулю - записать в файл
         // Разделить 64 битное число на 8 отбельных байт для последовательной записи в файл
-        for (int8_t j=0; j<8; ++j) {
+        for (int8_t j=0; j<8; j++) {
           buf[j] = phones_on_sim[l] >> (56 - (8*j)) ;
           //Serial.print("bf["); Serial.print(j); Serial.print("] = "); Serial.println(buf[j], BIN);
           }  
@@ -2084,7 +2084,7 @@ long ESPWebBase::listDir(const char *dirname, uint8_t levels, bool reallocFiles)
             if (_fileName[3] >=48 && _fileName[3] <= 57) //если цифра от 0 до 9
             { _ret += file.size(); // учесть размер найденного файла лога
               if (reallocFiles)// заполнить массив имеющимися названиями файлов логов
-                {for (int8_t f=0; f<27; ++f ) _callLogFile[_fileName[3]-48][f] = _fileName[f];
+                {for (int8_t f=0; f<27; f++) _callLogFile[_fileName[3]-48][f] = _fileName[f];
                   if (_activLogFile < _fileName[3]-48) _activLogFile = _fileName[3]-48;
                 }
             }

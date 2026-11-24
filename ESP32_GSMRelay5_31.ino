@@ -351,7 +351,7 @@ void ESPWebMQTTRelay::add_in_queue_comand(int _inncomand, const char* _inn_text_
 void ESPWebMQTTRelay::setupExtra() {
   ESPWebMQTTBase::setupExtra();
 
-  for (int8_t i = 0; i < maxRelays; ++i) {
+  for (int8_t i = 0; i < maxRelays; i++) {
     autoRelease[i] = 0;
 
       if (v_RelayPin[i] == -1) // объявить пин если он не виртуальное реле    
@@ -756,7 +756,7 @@ uint16_t ESPWebMQTTRelay::readConfig() {
     offset += sizeof(irPin);
     getEEPROM(offset, irType);
     offset += sizeof(irType);
-    for (i = 0; i < maxRelays; ++i) {
+    for (i = 0; i < maxRelays; i++) {
       getEEPROM(offset, irOn[i]);
       offset += sizeof(irOn[i]);
       getEEPROM(offset, irToggle[i]);
@@ -843,7 +843,7 @@ uint16_t ESPWebMQTTRelay::writeConfig(bool commit) {
   offset += sizeof(irPin);
   putEEPROM(offset, irType);
   offset += sizeof(irType);
-  for (i = 0; i < maxRelays; ++i) {
+  for (i = 0; i < maxRelays; i++) {
     putEEPROM(offset, irOn[i]);
     offset += sizeof(irOn[i]);
     putEEPROM(offset, irToggle[i]);
@@ -915,7 +915,7 @@ void ESPWebMQTTRelay::defaultConfig(uint8_t level) {
   }
 
   if (level < 3) {
-    for (i = 0; i < maxRelays; ++i) {
+    for (i = 0; i < maxRelays; i++) {
       relayPin[i] = defRelayPin[i]; // изменено 19/04/2023
       relayLevel[i] = defRelayLevel;
       relayOnBoot[i] = defRelayOnBoot;
@@ -924,7 +924,7 @@ void ESPWebMQTTRelay::defaultConfig(uint8_t level) {
       btnLevel[i] = defBtnLevel;
       debounceTime[i] = defDebounceTime;
     }
-    for (i = 0; i < maxSchedules; ++i) {
+    for (i = 0; i < maxSchedules; i++) {
       schedule[i].clear();
       scheduleRelay[i] = 0;
     }
@@ -932,7 +932,7 @@ void ESPWebMQTTRelay::defaultConfig(uint8_t level) {
 #ifdef USEIRREMOTE
     irPin = defIRPin;
     irType = defIRType;
-    for (i = 0; i < maxRelays; ++i) {
+    for (i = 0; i < maxRelays; i++) {
       irOn[i] = defIROn;
       irToggle[i] = defIRToggle;
       irOff[i] = defIROff;
@@ -2334,7 +2334,7 @@ void ESPWebMQTTRelay::handleClimateConfig() {
   page += FPSTR(paramDHTMinTempRelay);
   page += F("\" size=\"1\">\n");
 
-  for (byte i = 0; i < maxRelays; ++i) {
+  for (byte i = 0; i < maxRelays; i++) {
     page += F("<option value=\"");
     page += String(i);
     page += charQuote;
@@ -2448,7 +2448,7 @@ turn\n\
   page += FPSTR(paramDSMinTempRelay);
   page += F("\" size=\"1\">\n");
 
-  for (byte i = 0; i < maxRelays; ++i) {
+  for (byte i = 0; i < maxRelays; i++) {
     page += F("<option value=\"");
     page += String(i);
     page += charQuote;
@@ -2493,7 +2493,7 @@ turn\n\
   page += FPSTR(paramDSMaxTempRelay);
   page += F("\" size=\"1\">\n");
 
-  for (byte i = 0; i < maxRelays; ++i) {
+  for (byte i = 0; i < maxRelays; i++) {
     page += F("<option value=\"");
     page += String(i);
     page += charQuote;
@@ -2561,7 +2561,7 @@ void ESPWebMQTTRelay::handleLDRConfig() {
   page += FPSTR(paramLDRMinBrightRelay);
   page += F("\" size=\"1\">\n");
 
-  for (byte i = 0; i < maxRelays; ++i) {
+  for (byte i = 0; i < maxRelays; i++) {
     page += F("<option value=\"");
     page += String(i);
     page += charQuote;
@@ -2903,7 +2903,7 @@ uint16_t ESPWebMQTTRelay::readScheduleConfig(uint16_t offset) {
     int8_t month;
     int16_t year;
 
-    for (int8_t i = 0; i < maxSchedules; ++i) {
+    for (int8_t i = 0; i < maxSchedules; i++) {
       getEEPROM(offset, period);
       offset += sizeof(period);
       getEEPROM(offset, hour);
@@ -2947,7 +2947,7 @@ uint16_t ESPWebMQTTRelay::writeScheduleConfig(uint16_t offset) {
     int8_t month;
     int16_t year;
 
-    for (int8_t i = 0; i < maxSchedules; ++i) {
+    for (int8_t i = 0; i < maxSchedules; i++) {
       period = schedule[i].period();
       hour = schedule[i].hour();
       minute = schedule[i].minute();

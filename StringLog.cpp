@@ -4,7 +4,7 @@ uint16_t StringLog::lines() {
   uint16_t result = 0;
   uint16_t len = _log.length();
 
-  for (uint16_t i = 0; i < len; ++i) {
+  for (uint16_t i = 0; i < len; i++) {
     if (_log[i] == '\n')
       ++result;
   }
@@ -42,7 +42,7 @@ String StringLog::line(uint16_t index) {
 String StringLog::encodeStr(const String& str) {
   String result;
 
-  for (uint16_t i = 0; i < str.length(); ++i) {
+  for (uint16_t i = 0; i < str.length(); i++) {
     char ch = str[i];
     if (ch == '"')
       result += F("&quot;");
